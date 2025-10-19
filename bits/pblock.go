@@ -2,6 +2,16 @@ package bits
 
 import (
 	"fmt"
+
+	"github.com/masterkusok/crypto/errors"
+)
+
+const (
+	// ErrBadData is returned when given data array is nil or empty.
+	ErrBadData = errors.ConstError("data slice is nil or empty")
+
+	// ErrBadPBlock is returned when given p-block is nil or empty.
+	ErrBadPBlock = errors.ConstError("pblock is nil or empty")
 )
 
 // PBlock represents PBlock used for DES encryption.
@@ -28,6 +38,14 @@ func PermutateBits(
 	indexingMode BitIndexMode,
 	zeroIndexingAllowed bool,
 ) (permutated []byte, err error) {
+	if len(data) == 0 {
+		return nil, ErrBadData
+	}
+
+	if len(pblock) == 0 {
+		return nil, ErrBadPBlock
+	}
+
 	idxModifier := 0
 	if zeroIndexingAllowed && !pblock.IsZeroIndexed() {
 		idxModifier = -1

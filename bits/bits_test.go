@@ -62,6 +62,30 @@ func TestPermutateBits(t *testing.T) {
 			zeroIndexing: true,
 			wantErr:      require.Error,
 		},
+		{
+			name:         "invalid_data",
+			data:         nil,
+			pblock:       nil,
+			mode:         bits.Inverted,
+			zeroIndexing: false,
+			wantErr:      require.Error,
+		},
+		{
+			name:         "invalid_pblock",
+			data:         []byte{1, 2, 3},
+			pblock:       nil,
+			mode:         bits.Inverted,
+			zeroIndexing: false,
+			wantErr:      require.Error,
+		},
+		{
+			name:         "invalid_mode",
+			data:         []byte{1, 2, 3},
+			pblock:       []int{1, 2, 3},
+			mode:         bits.BitIndexMode(4),
+			zeroIndexing: false,
+			wantErr:      require.Error,
+		},
 	}
 
 	for _, tc := range testCases {
