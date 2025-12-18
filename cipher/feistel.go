@@ -1,83 +1,105 @@
 package cipher
 
-// FeistelNetworkConfig is configuration structure for [FeistelNetwork].
-type FeistelNetworkConfig struct {
-	// F is a feistel network function.
-	F BlockCipher
+import (
+	"context"
 
-	// Expander is used for generating round keys.
-	Expander KeyExpander
-}
+	"github.com/masterkusok/crypto/errors"
+)
 
-// FeistelNetwork is implementation of Feistel Network functionality.
+// FeistelNetwork implements a Feistel cipher structure.
 type FeistelNetwork struct {
-	encryptionKey []byte
-	decryptionKey []byte
-	f             BlockCipher
-	expander      KeyExpander
+	keyScheduler  KeyScheduler
+	RoundFunction RoundFunction
+	RoundKeys     [][]byte
+	blockSize     int
 }
 
-// type check
-var _ (SymmetricAlgorithm) = (*FeistelNetwork)(nil)
-
-// NewFeistelNetwork returns new FeistelNetwork object.  c must not be nil.
-func NewFeistelNetwork(c *FeistelNetworkConfig) *FeistelNetwork {
+// NewFeistelNetwork creates a new Feistel network cipher.
+func NewFeistelNetwork(keyScheduler KeyScheduler, roundFunction RoundFunction, blockSize int) *FeistelNetwork {
 	return &FeistelNetwork{
-		f:        c.F,
-		expander: c.Expander,
+		keyScheduler:  keyScheduler,
+		RoundFunction: roundFunction,
+		blockSize:     blockSize,
 	}
 }
 
-func (f *FeistelNetwork) SetEncryptionKey(key []byte) {
-	f.encryptionKey = make([]byte, len(key))
-	copy(f.encryptionKey, key)
+// SetKey generates and stores round keys.
+func (f *FeistelNetwork) SetKey(ctx context.Context, key []byte) error {
+	roundKeys, err := f.keyScheduler.GenerateRoundKeys(ctx, key)
+	if err != nil {
+		return errors.Annotate(err, "failed to generate round keys: %w")
+	}
+	f.RoundKeys = roundKeys
+	return nil
 }
 
-func (f *FeistelNetwork) SetDecryptionKey(key []byte) {
-	f.decryptionKey = make([]byte, len(key))
-	copy(f.decryptionKey, key)
+// Encrypt encrypts a block using the Feistel structure.
+func (f *FeistelNetwork) Encrypt(ctx context.Context, block []byte) ([]byte, error) {
+	if len(block) != f.blockSize {
+		return nil, errors.ErrInvalidBlockSize
+	}
+
+	halfSize := f.blockSize / 2
+	left := make([]byte, halfSize)
+	right := make([]byte, halfSize)
+	copy(left, block[:halfSize])
+	copy(right, block[halfSize:])
+
+	for _, roundKey := range f.RoundKeys {
+		transformed, err := f.RoundFunction.Transform(ctx, right, roundKey)
+		if err != nil {
+			return nil, errors.Annotate(err, "round function failed: %w")
+		}
+
+		newRight := xor(left, transformed)
+		left = right
+		right = newRight
+	}
+
+	result := make([]byte, f.blockSize)
+	copy(result[:halfSize], left)
+	copy(result[halfSize:], right)
+	return result, nil
 }
 
-func (f *FeistelNetwork) Encrypt(block []byte) []byte {
-	if len(block)%2 != 0 {
-		panic("block size must be even for Feistel network")
+// Decrypt decrypts a block using the Feistel structure.
+func (f *FeistelNetwork) Decrypt(ctx context.Context, block []byte) ([]byte, error) {
+	if len(block) != f.blockSize {
+		return nil, errors.ErrInvalidBlockSize
 	}
 
-	blockCopy := make([]byte, len(block))
-	copy(blockCopy, block)
+	halfSize := f.blockSize / 2
+	left := make([]byte, halfSize)
+	right := make([]byte, halfSize)
+	copy(left, block[:halfSize])
+	copy(right, block[halfSize:])
 
-	L, R := blockCopy[0:len(blockCopy)/2], blockCopy[len(blockCopy)/2:]
-	keys := f.expander.ExpandKey(f.encryptionKey)
+	for i := len(f.RoundKeys) - 1; i >= 0; i-- {
+		transformed, err := f.RoundFunction.Transform(ctx, left, f.RoundKeys[i])
+		if err != nil {
+			return nil, errors.Annotate(err, "round function failed: %w")
+		}
 
-	for _, key := range keys {
-		Li := R
-		Ri := xorBytes(L, f.f.EncryptBlock(R, key))
-
-		L, R = Li, Ri
+		newLeft := xor(right, transformed)
+		right = left
+		left = newLeft
 	}
 
-	return append(R, L...)
+	result := make([]byte, f.blockSize)
+	copy(result[:halfSize], left)
+	copy(result[halfSize:], right)
+	return result, nil
 }
 
-func (f *FeistelNetwork) Decrypt(block []byte) []byte {
-	if len(block)%2 != 0 {
-		panic("block size must be even for Feistel network")
+// BlockSize returns the block size.
+func (f *FeistelNetwork) BlockSize() int {
+	return f.blockSize
+}
+
+func xor(a, b []byte) []byte {
+	result := make([]byte, len(a))
+	for i := range a {
+		result[i] = a[i] ^ b[i]
 	}
-
-	blockCopy := make([]byte, len(block))
-	copy(blockCopy, block)
-
-	L, R := blockCopy[0:len(blockCopy)/2], blockCopy[len(blockCopy)/2:]
-	keys := f.expander.ExpandKey(f.decryptionKey)
-
-	for i := len(keys) - 1; i >= 0; i-- {
-		roundKey := keys[i]
-
-		Ri := L
-		Li := xorBytes(R, f.f.EncryptBlock(L, roundKey))
-
-		L, R = Li, Ri
-	}
-
-	return append(L, R...)
+	return result
 }

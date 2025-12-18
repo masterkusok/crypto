@@ -22,3 +22,18 @@ func Annotate(err error, format string, args ...any) (annotated error) {
 
 	return fmt.Errorf(format, append(args, err)...)
 }
+
+const (
+	ErrInvalidKeySize       ConstError = "invalid key size"
+	ErrInvalidBlockSize     ConstError = "invalid block size"
+	ErrInvalidPTableSize    ConstError = "invalid permutation table size"
+	ErrInvalidBitIndex      ConstError = "invalid bit index"
+	ErrInvalidDataLength    ConstError = "invalid data length"
+	ErrInvalidIVSize        ConstError = "invalid IV size"
+	ErrInvalidPaddingScheme ConstError = "invalid padding scheme"
+	ErrInvalidMode          ConstError = "invalid cipher mode"
+	ErrMessageTooLarge      ConstError = "message too large for RSA key"
+	ErrInvalidSignature     ConstError = "invalid signature"
+	ErrInvalidPublicKey     ConstError = "invalid public key"
+	ErrInvalidPrivateKey    ConstError = "invalid private key"
+)
