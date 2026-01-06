@@ -2,6 +2,9 @@ package math
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGF256Add(t *testing.T) {
@@ -15,9 +18,7 @@ func TestGF256Add(t *testing.T) {
 
 	for _, tt := range tests {
 		got := GF256Add(tt.a, tt.b)
-		if got != tt.want {
-			t.Errorf("GF256Add(0x%02X, 0x%02X) = 0x%02X, want 0x%02X", tt.a, tt.b, got, tt.want)
-		}
+		assert.Equal(t, tt.want, got, "GF256Add(0x%02X, 0x%02X)", tt.a, tt.b)
 	}
 }
 
@@ -35,22 +36,15 @@ func TestGF256Mul(t *testing.T) {
 
 	for _, tt := range tests {
 		got, err := GF256Mul(tt.a, tt.b, mod)
-		if err != nil {
-			t.Errorf("GF256Mul(0x%02X, 0x%02X, 0x%02X) error: %v", tt.a, tt.b, mod, err)
-			continue
-		}
-		if got != tt.want {
-			t.Errorf("GF256Mul(0x%02X, 0x%02X, 0x%02X) = 0x%02X, want 0x%02X", tt.a, tt.b, mod, got, tt.want)
-		}
+		require.NoError(t, err, "GF256Mul(0x%02X, 0x%02X, 0x%02X)", tt.a, tt.b, mod)
+		assert.Equal(t, tt.want, got, "GF256Mul(0x%02X, 0x%02X, 0x%02X)", tt.a, tt.b, mod)
 	}
 }
 
 func TestGF256MulReducible(t *testing.T) {
 	// 0x02 is reducible (degree 1)
 	_, err := GF256Mul(0x57, 0x83, 0x02)
-	if err != ErrReduciblePolynomial {
-		t.Errorf("Expected ErrReduciblePolynomial, got %v", err)
-	}
+	require.ErrorIs(t, err, ErrReduciblePolynomial)
 }
 
 func TestGF256Inv(t *testing.T) {
@@ -60,29 +54,17 @@ func TestGF256Inv(t *testing.T) {
 
 	for _, a := range tests {
 		inv, err := GF256Inv(a, mod)
-		if err != nil {
-			t.Errorf("GF256Inv(0x%02X, 0x%02X) error: %v", a, mod, err)
-			continue
-		}
+		require.NoError(t, err, "GF256Inv(0x%02X, 0x%02X)", a, mod)
 
-		// Verify: a * inv = 1
 		prod, err := GF256Mul(a, inv, mod)
-		if err != nil {
-			t.Errorf("Verification mul error: %v", err)
-			continue
-		}
-		if prod != 0x01 {
-			t.Errorf("GF256Inv(0x%02X) = 0x%02X, but 0x%02X * 0x%02X = 0x%02X, want 0x01",
-				a, inv, a, inv, prod)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, byte(0x01), prod, "GF256Inv(0x%02X) = 0x%02X, but 0x%02X * 0x%02X", a, inv, a, inv)
 	}
 }
 
 func TestGF256InvZero(t *testing.T) {
 	_, err := GF256Inv(0x00, 0x1B)
-	if err == nil {
-		t.Error("Expected error for inverse of zero")
-	}
+	require.Error(t, err)
 }
 
 func TestIsIrreducible(t *testing.T) {
@@ -99,37 +81,20 @@ func TestIsIrreducible(t *testing.T) {
 
 	for _, tt := range tests {
 		got := IsIrreducible(tt.poly)
-		if got != tt.want {
-			t.Errorf("IsIrreducible(0x%02X) = %v, want %v", tt.poly, got, tt.want)
-		}
+		assert.Equal(t, tt.want, got, "IsIrreducible(0x%02X)", tt.poly)
 	}
 }
 
 func TestGetAllIrreducible(t *testing.T) {
 	irr := GetAllIrreducible()
 
-	if len(irr) == 0 {
-		t.Error("No irreducible polynomials found")
+	assert.NotEmpty(t, irr)
+
+	for _, p := range irr {
+		assert.True(t, IsIrreducible(p), "0x%02X is not irreducible", p)
 	}
 
-	// Verify all returned polynomials are irreducible
-	for _, p := range irr {
-		if !IsIrreducible(p) {
-			t.Errorf("0x%02X is not irreducible", p)
-		}
-	}
-
-	// Check that 0x1B (AES polynomial) is in the list
-	found := false
-	for _, p := range irr {
-		if p == 0x1B {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("AES polynomial 0x1B not found in irreducible list")
-	}
+	assert.Contains(t, irr, byte(0x1B), "AES polynomial 0x1B not found")
 
 	t.Logf("Found %d irreducible polynomials of degree 8", len(irr))
 }
@@ -154,9 +119,7 @@ func TestFactorize(t *testing.T) {
 			for _, f := range factors {
 				product = polyMul(product, f)
 			}
-			if product != tt.poly {
-				t.Errorf("Product of factors = 0x%03X, want 0x%03X", product, tt.poly)
-			}
+			assert.Equal(t, tt.poly, product, "Product of factors")
 		}
 	}
 }
@@ -176,8 +139,6 @@ func TestPolyDegree(t *testing.T) {
 
 	for _, tt := range tests {
 		got := polyDegree(tt.poly)
-		if got != tt.want {
-			t.Errorf("polyDegree(0x%03X) = %d, want %d", tt.poly, got, tt.want)
-		}
+		assert.Equal(t, tt.want, got, "polyDegree(0x%03X)", tt.poly)
 	}
 }

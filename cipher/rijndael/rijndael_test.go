@@ -1,9 +1,11 @@
 package rijndael
 
 import (
-	"bytes"
 	"context"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRijndael128(t *testing.T) {
@@ -17,32 +19,21 @@ func TestRijndael128(t *testing.T) {
 		0x31, 0x31, 0x98, 0xa2, 0xe0, 0x37, 0x07, 0x34,
 	}
 
-	r, err := NewRijndael(16, 16, 0x1B) // AES polynomial
-	if err != nil {
-		t.Fatalf("Failed to create Rijndael: %v", err)
-	}
+	r, err := NewRijndael(16, 16, 0x1B)
+	require.NoError(t, err)
 
 	ctx := context.Background()
-	err = r.SetKey(ctx, key)
-	if err != nil {
-		t.Fatalf("Failed to set key: %v", err)
-	}
+	require.NoError(t, r.SetKey(ctx, key))
 
 	ciphertext, err := r.Encrypt(ctx, plaintext)
-	if err != nil {
-		t.Fatalf("Encryption failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	t.Logf("Ciphertext: %x", ciphertext)
 
 	decrypted, err := r.Decrypt(ctx, ciphertext)
-	if err != nil {
-		t.Fatalf("Decryption failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if !bytes.Equal(plaintext, decrypted) {
-		t.Errorf("Decryption mismatch\nExpected: %x\nGot: %x", plaintext, decrypted)
-	}
+	assert.Equal(t, plaintext, decrypted)
 }
 
 func TestRijndael192(t *testing.T) {
@@ -57,29 +48,18 @@ func TestRijndael192(t *testing.T) {
 	}
 
 	r, err := NewRijndael(24, 24, 0x1B)
-	if err != nil {
-		t.Fatalf("Failed to create Rijndael: %v", err)
-	}
+	require.NoError(t, err)
 
 	ctx := context.Background()
-	err = r.SetKey(ctx, key)
-	if err != nil {
-		t.Fatalf("Failed to set key: %v", err)
-	}
+	require.NoError(t, r.SetKey(ctx, key))
 
 	ciphertext, err := r.Encrypt(ctx, plaintext)
-	if err != nil {
-		t.Fatalf("Encryption failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	decrypted, err := r.Decrypt(ctx, ciphertext)
-	if err != nil {
-		t.Fatalf("Decryption failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if !bytes.Equal(plaintext, decrypted) {
-		t.Errorf("Decryption mismatch")
-	}
+	assert.Equal(t, plaintext, decrypted)
 }
 
 func TestRijndael256(t *testing.T) {
@@ -94,29 +74,18 @@ func TestRijndael256(t *testing.T) {
 	}
 
 	r, err := NewRijndael(32, 32, 0x1B)
-	if err != nil {
-		t.Fatalf("Failed to create Rijndael: %v", err)
-	}
+	require.NoError(t, err)
 
 	ctx := context.Background()
-	err = r.SetKey(ctx, key)
-	if err != nil {
-		t.Fatalf("Failed to set key: %v", err)
-	}
+	require.NoError(t, r.SetKey(ctx, key))
 
 	ciphertext, err := r.Encrypt(ctx, plaintext)
-	if err != nil {
-		t.Fatalf("Encryption failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	decrypted, err := r.Decrypt(ctx, ciphertext)
-	if err != nil {
-		t.Fatalf("Decryption failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if !bytes.Equal(plaintext, decrypted) {
-		t.Errorf("Decryption mismatch")
-	}
+	assert.Equal(t, plaintext, decrypted)
 }
 
 func TestRijndaelDifferentModulus(t *testing.T) {
@@ -129,55 +98,36 @@ func TestRijndaelDifferentModulus(t *testing.T) {
 			plaintext := []byte("Test message!!!!")
 
 			r, err := NewRijndael(16, 16, mod)
-			if err != nil {
-				t.Fatalf("Failed to create Rijndael: %v", err)
-			}
+			require.NoError(t, err)
 
 			ctx := context.Background()
-			err = r.SetKey(ctx, key)
-			if err != nil {
-				t.Fatalf("Failed to set key: %v", err)
-			}
+			require.NoError(t, r.SetKey(ctx, key))
 
 			ciphertext, err := r.Encrypt(ctx, plaintext)
-			if err != nil {
-				t.Fatalf("Encryption failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			decrypted, err := r.Decrypt(ctx, ciphertext)
-			if err != nil {
-				t.Fatalf("Decryption failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			if !bytes.Equal(plaintext, decrypted) {
-				t.Errorf("Decryption mismatch")
-			}
+			assert.Equal(t, plaintext, decrypted)
 		})
 	}
 }
 
 func TestRijndaelInvalidSizes(t *testing.T) {
 	_, err := NewRijndael(15, 16, 0x1B)
-	if err == nil {
-		t.Error("Expected error for invalid block size")
-	}
+	require.Error(t, err)
 
 	_, err = NewRijndael(16, 15, 0x1B)
-	if err == nil {
-		t.Error("Expected error for invalid key size")
-	}
+	require.Error(t, err)
 }
 
 func TestRijndaelReducibleModulus(t *testing.T) {
-	_, err := NewRijndael(16, 16, 0x02) // x is reducible
-	if err == nil {
-		t.Error("Expected error for reducible modulus")
-	}
+	_, err := NewRijndael(16, 16, 0x02)
+	require.Error(t, err)
 }
 
 func TestRijndaelBlockSize(t *testing.T) {
 	r, _ := NewRijndael(16, 16, 0x1B)
-	if r.BlockSize() != 16 {
-		t.Errorf("BlockSize() = %d, want 16", r.BlockSize())
-	}
+	assert.Equal(t, 16, r.BlockSize())
 }

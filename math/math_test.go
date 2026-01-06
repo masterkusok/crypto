@@ -3,6 +3,8 @@ package math
 import (
 	"math/big"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLegendre(t *testing.T) {
@@ -20,9 +22,7 @@ func TestLegendre(t *testing.T) {
 
 	for _, tt := range tests {
 		got := Legendre(tt.a, tt.p)
-		if got != tt.want {
-			t.Errorf("Legendre(%d, %d) = %d, want %d", tt.a, tt.p, got, tt.want)
-		}
+		assert.Equal(t, tt.want, got, "Legendre(%d, %d)", tt.a, tt.p)
 	}
 }
 
@@ -41,9 +41,7 @@ func TestJacobi(t *testing.T) {
 
 	for _, tt := range tests {
 		got := Jacobi(tt.a, tt.n)
-		if got != tt.want {
-			t.Errorf("Jacobi(%d, %d) = %d, want %d", tt.a, tt.n, got, tt.want)
-		}
+		assert.Equal(t, tt.want, got, "Jacobi(%d, %d)", tt.a, tt.n)
 	}
 }
 
@@ -62,9 +60,7 @@ func TestGCD(t *testing.T) {
 
 	for _, tt := range tests {
 		got := GCD(tt.a, tt.b)
-		if got != tt.want {
-			t.Errorf("GCD(%d, %d) = %d, want %d", tt.a, tt.b, got, tt.want)
-		}
+		assert.Equal(t, tt.want, got, "GCD(%d, %d)", tt.a, tt.b)
 	}
 }
 
@@ -82,14 +78,9 @@ func TestExtendedGCD(t *testing.T) {
 
 	for _, tt := range tests {
 		gcd, x, y := ExtendedGCD(tt.a, tt.b)
-		if gcd != tt.wantGCD {
-			t.Errorf("ExtendedGCD(%d, %d) gcd = %d, want %d", tt.a, tt.b, gcd, tt.wantGCD)
-		}
+		assert.Equal(t, tt.wantGCD, gcd, "ExtendedGCD(%d, %d) gcd", tt.a, tt.b)
 		if tt.checkBezout {
-			if tt.a*x+tt.b*y != gcd {
-				t.Errorf("ExtendedGCD(%d, %d): Bezout identity failed: %d*%d + %d*%d = %d, want %d",
-					tt.a, tt.b, tt.a, x, tt.b, y, tt.a*x+tt.b*y, gcd)
-			}
+			assert.Equal(t, gcd, tt.a*x+tt.b*y, "Bezout identity: %d*%d + %d*%d", tt.a, x, tt.b, y)
 		}
 	}
 }
@@ -109,9 +100,7 @@ func TestModPow(t *testing.T) {
 
 	for _, tt := range tests {
 		got := ModPow(tt.base, tt.exp, tt.m)
-		if got != tt.want {
-			t.Errorf("ModPow(%d, %d, %d) = %d, want %d", tt.base, tt.exp, tt.m, got, tt.want)
-		}
+		assert.Equal(t, tt.want, got, "ModPow(%d, %d, %d)", tt.base, tt.exp, tt.m)
 	}
 }
 
@@ -131,17 +120,12 @@ func TestExtendedGCDBig(t *testing.T) {
 		
 		gcd, x, y := ExtendedGCDBig(a, b)
 		
-		if gcd.Cmp(big.NewInt(tt.wantGCD)) != 0 {
-			t.Errorf("ExtendedGCDBig(%d, %d) gcd = %v, want %d", tt.a, tt.b, gcd, tt.wantGCD)
-		}
+		assert.Equal(t, 0, gcd.Cmp(big.NewInt(tt.wantGCD)), "ExtendedGCDBig(%d, %d) gcd", tt.a, tt.b)
 		
-		// Verify Bezout identity: ax + by = gcd
 		result := new(big.Int).Mul(a, x)
 		result.Add(result, new(big.Int).Mul(b, y))
 		
-		if result.Cmp(gcd) != 0 {
-			t.Errorf("Bezout identity failed: %d*%v + %d*%v = %v, want %v", tt.a, x, tt.b, y, result, gcd)
-		}
+		assert.Equal(t, 0, result.Cmp(gcd), "Bezout identity: %d*%v + %d*%v", tt.a, x, tt.b, y)
 	}
 }
 
@@ -161,22 +145,13 @@ func TestModInverseBig(t *testing.T) {
 		
 		inv := ModInverseBig(a, m)
 		
-		if inv == nil {
-			t.Errorf("ModInverseBig(%d, %d) returned nil", tt.a, tt.m)
-			continue
-		}
+		assert.NotNil(t, inv, "ModInverseBig(%d, %d)", tt.a, tt.m)
+		assert.Equal(t, 0, inv.Cmp(big.NewInt(tt.want)), "ModInverseBig(%d, %d)", tt.a, tt.m)
 		
-		if inv.Cmp(big.NewInt(tt.want)) != 0 {
-			t.Errorf("ModInverseBig(%d, %d) = %v, want %d", tt.a, tt.m, inv, tt.want)
-		}
-		
-		// Verify: (a * inv) mod m = 1
 		result := new(big.Int).Mul(a, inv)
 		result.Mod(result, m)
 		
-		if result.Cmp(big.NewInt(1)) != 0 {
-			t.Errorf("Verification failed: (%d * %v) mod %d = %v, want 1", tt.a, inv, tt.m, result)
-		}
+		assert.Equal(t, 0, result.Cmp(big.NewInt(1)), "Verification: (%d * %v) mod %d", tt.a, inv, tt.m)
 	}
 }
 
@@ -187,7 +162,5 @@ func TestModInverseBigNoInverse(t *testing.T) {
 	
 	inv := ModInverseBig(a, m)
 	
-	if inv != nil {
-		t.Errorf("ModInverseBig(6, 9) should return nil, got %v", inv)
-	}
+	assert.Nil(t, inv)
 }

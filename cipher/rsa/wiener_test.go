@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	cryptoMath "github.com/masterkusok/crypto/math"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWienerAttackVulnerable(t *testing.T) {
@@ -36,41 +38,21 @@ func TestWienerAttackVulnerable(t *testing.T) {
 		t.Logf("Found phi = %v", result.Phi)
 	}
 
-	if !result.Success {
-		t.Fatal("Attack should succeed on vulnerable key")
-	}
-
-	if result.D.Cmp(d) != 0 {
-		t.Errorf("Found d = %v, expected %v", result.D, d)
-	}
-
-	if result.Phi.Cmp(phi) != 0 {
-		t.Errorf("Found φ = %v, expected %v", result.Phi, phi)
-	}
-
-	if len(result.Convergents) == 0 {
-		t.Error("No convergents computed")
-	}
+	require.True(t, result.Success)
+	assert.Equal(t, 0, result.D.Cmp(d))
+	assert.Equal(t, 0, result.Phi.Cmp(phi))
+	assert.NotEmpty(t, result.Convergents)
 }
 
 func TestWienerAttackNotVulnerable(t *testing.T) {
 	// Create RSA with large d (not vulnerable)
 	rsa := NewRSA(cryptoMath.NewMillerRabinTest(), 0.99, 512)
-	err := rsa.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("Failed to generate key: %v", err)
-	}
+	require.NoError(t, rsa.GenerateKeyPair())
 
 	result := WienerAttack(rsa.GetPublicKey())
 
-	// Should not succeed because d is large
-	if result.Success {
-		t.Error("Attack should not succeed on secure key")
-	}
-
-	if len(result.Convergents) == 0 {
-		t.Error("No convergents computed")
-	}
+	assert.False(t, result.Success)
+	assert.NotEmpty(t, result.Convergents)
 }
 
 func TestIsVulnerableToWiener(t *testing.T) {
@@ -87,20 +69,12 @@ func TestIsVulnerableToWiener(t *testing.T) {
 
 	pub := &PublicKey{N: n, E: e}
 
-	if !IsVulnerableToWiener(pub) {
-		t.Error("Key should be vulnerable to Wiener attack")
-	}
+	assert.True(t, IsVulnerableToWiener(pub))
 
-	// Secure key
 	rsa := NewRSA(cryptoMath.NewMillerRabinTest(), 0.99, 512)
-	err := rsa.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("Failed to generate key: %v", err)
-	}
+	require.NoError(t, rsa.GenerateKeyPair())
 
-	if IsVulnerableToWiener(rsa.GetPublicKey()) {
-		t.Error("Secure key should not be vulnerable to Wiener attack")
-	}
+	assert.False(t, IsVulnerableToWiener(rsa.GetPublicKey()))
 }
 
 func TestConvergents(t *testing.T) {
@@ -109,14 +83,10 @@ func TestConvergents(t *testing.T) {
 
 	convergents := continuedFraction(e, n)
 
-	if len(convergents) == 0 {
-		t.Error("No convergents computed")
-	}
+	assert.NotEmpty(t, convergents)
 
-	// Verify convergents are computed
 	for i, conv := range convergents {
-		if conv.Numerator == nil || conv.Denominator == nil {
-			t.Errorf("Convergent %d has nil values", i)
-		}
+		assert.NotNil(t, conv.Numerator, "Convergent %d numerator", i)
+		assert.NotNil(t, conv.Denominator, "Convergent %d denominator", i)
 	}
 }

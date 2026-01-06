@@ -1,76 +1,52 @@
 package rsa
 
 import (
-	"bytes"
 	"testing"
 
 	cryptoMath "github.com/masterkusok/crypto/math"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRSAKeyGeneration(t *testing.T) {
 	rsa := NewRSA(cryptoMath.NewMillerRabinTest(), 0.99, 512)
 
-	err := rsa.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("Failed to generate key pair: %v", err)
-	}
+	require.NoError(t, rsa.GenerateKeyPair())
 
-	if rsa.GetPublicKey() == nil {
-		t.Error("Public key is nil")
-	}
-	if rsa.GetPrivateKey() == nil {
-		t.Error("Private key is nil")
-	}
+	assert.NotNil(t, rsa.GetPublicKey())
+	assert.NotNil(t, rsa.GetPrivateKey())
 }
 
 func TestRSAEncryptDecrypt(t *testing.T) {
 	rsa := NewRSA(cryptoMath.NewMillerRabinTest(), 0.99, 512)
 
-	err := rsa.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("Failed to generate key pair: %v", err)
-	}
+	require.NoError(t, rsa.GenerateKeyPair())
 
 	message := []byte("Hello, RSA!")
 
 	ciphertext, err := rsa.Encrypt(message)
-	if err != nil {
-		t.Fatalf("Encryption failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	decrypted, err := rsa.Decrypt(ciphertext)
-	if err != nil {
-		t.Fatalf("Decryption failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if !bytes.Equal(message, decrypted) {
-		t.Errorf("Decrypted message doesn't match original.\nExpected: %s\nGot: %s", message, decrypted)
-	}
+	assert.Equal(t, message, decrypted)
 }
 
 func TestRSAMultipleKeyGeneration(t *testing.T) {
 	rsa := NewRSA(cryptoMath.NewMillerRabinTest(), 0.99, 512)
 
 	for i := 0; i < 3; i++ {
-		err := rsa.GenerateKeyPair()
-		if err != nil {
-			t.Fatalf("Failed to generate key pair %d: %v", i+1, err)
-		}
+		require.NoError(t, rsa.GenerateKeyPair())
 
 		message := []byte("Test message")
 		ciphertext, err := rsa.Encrypt(message)
-		if err != nil {
-			t.Fatalf("Encryption failed on iteration %d: %v", i+1, err)
-		}
+		require.NoError(t, err)
 
 		decrypted, err := rsa.Decrypt(ciphertext)
-		if err != nil {
-			t.Fatalf("Decryption failed on iteration %d: %v", i+1, err)
-		}
+		require.NoError(t, err)
 
-		if !bytes.Equal(message, decrypted) {
-			t.Errorf("Iteration %d: decrypted message doesn't match", i+1)
-		}
+		assert.Equal(t, message, decrypted)
 	}
 }
 
@@ -87,25 +63,16 @@ func TestRSADifferentTests(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rsa := NewRSA(tt.tester, 0.99, 512)
-			err := rsa.GenerateKeyPair()
-			if err != nil {
-				t.Fatalf("Failed to generate key pair with %s: %v", tt.name, err)
-			}
+			require.NoError(t, rsa.GenerateKeyPair())
 
 			message := []byte("Test")
 			ciphertext, err := rsa.Encrypt(message)
-			if err != nil {
-				t.Fatalf("Encryption failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			decrypted, err := rsa.Decrypt(ciphertext)
-			if err != nil {
-				t.Fatalf("Decryption failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			if !bytes.Equal(message, decrypted) {
-				t.Error("Decrypted message doesn't match")
-			}
+			assert.Equal(t, message, decrypted)
 		})
 	}
 }
@@ -114,12 +81,8 @@ func TestRSANoKeyError(t *testing.T) {
 	rsa := NewRSA(cryptoMath.NewMillerRabinTest(), 0.99, 512)
 
 	_, err := rsa.Encrypt([]byte("test"))
-	if err == nil {
-		t.Error("Expected error when encrypting without key")
-	}
+	require.Error(t, err)
 
 	_, err = rsa.Decrypt([]byte("test"))
-	if err == nil {
-		t.Error("Expected error when decrypting without key")
-	}
+	require.Error(t, err)
 }

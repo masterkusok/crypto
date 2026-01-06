@@ -6,6 +6,8 @@ import (
 
 	"github.com/masterkusok/crypto/cipher"
 	"github.com/masterkusok/crypto/cipher/des"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCipherContextModes(t *testing.T) {
@@ -14,29 +16,29 @@ func TestCipherContextModes(t *testing.T) {
 	iv := []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 	plaintext := []byte("Test message for encryption!")
 
-	modes := []cipher.Mode{cipher.ECB, cipher.CBC, cipher.PCBC, cipher.CFB, cipher.OFB, cipher.CTR, cipher.RandomDelta}
+	modes := []cipher.CipherMode{
+		&cipher.ECBMode{},
+		&cipher.CBCMode{},
+		&cipher.PCBCMode{},
+		&cipher.CFBMode{},
+		&cipher.OFBMode{},
+		&cipher.CTRMode{},
+		&cipher.RandomDeltaMode{},
+	}
 	modeNames := []string{"ECB", "CBC", "PCBC", "CFB", "OFB", "CTR", "RandomDelta"}
 
 	for i, mode := range modes {
 		t.Run(modeNames[i], func(t *testing.T) {
 			cipherCtx, err := cipher.NewCipherContext(des.NewDES(), key, mode, cipher.PKCS7, iv)
-			if err != nil {
-				t.Fatalf("Failed to create cipher context: %v", err)
-			}
+			require.NoError(t, err)
 
 			encrypted, err := cipherCtx.EncryptBytes(ctx, plaintext)
-			if err != nil {
-				t.Fatalf("Encryption failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			decrypted, err := cipherCtx.DecryptBytes(ctx, encrypted)
-			if err != nil {
-				t.Fatalf("Decryption failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			if string(plaintext) != string(decrypted) {
-				t.Errorf("Decrypted text doesn't match original.\nExpected: %s\nGot: %s", plaintext, decrypted)
-			}
+			assert.Equal(t, plaintext, decrypted)
 		})
 	}
 }
@@ -51,22 +53,14 @@ func TestPaddingSchemes(t *testing.T) {
 	for i, scheme := range schemes {
 		t.Run(schemeNames[i], func(t *testing.T) {
 			padded, err := cipher.Pad(data, blockSize, scheme)
-			if err != nil {
-				t.Fatalf("Padding failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			if len(padded)%blockSize != 0 {
-				t.Errorf("Padded data length %d is not multiple of block size %d", len(padded), blockSize)
-			}
+			assert.Zero(t, len(padded)%blockSize)
 
 			unpadded, err := cipher.Unpad(padded, scheme)
-			if err != nil {
-				t.Fatalf("Unpadding failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			if string(data) != string(unpadded) {
-				t.Errorf("Unpadded data doesn't match original.\nExpected: %s\nGot: %s", data, unpadded)
-			}
+			assert.Equal(t, data, unpadded)
 		})
 	}
 }

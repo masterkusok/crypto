@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"sync"
 
 	"github.com/masterkusok/crypto/errors"
 )
@@ -12,14 +11,14 @@ import (
 // CipherContext provides encryption/decryption with modes and padding.
 type CipherContext struct {
 	cipher  BlockCipher
-	mode    Mode
+	mode    CipherMode
 	padding PaddingScheme
 	iv      []byte
 	params  map[string]interface{}
 }
 
 // NewCipherContext creates a new cipher context.
-func NewCipherContext(cipher BlockCipher, key []byte, mode Mode, padding PaddingScheme, iv []byte, params ...interface{}) (*CipherContext, error) {
+func NewCipherContext(cipher BlockCipher, key []byte, mode CipherMode, padding PaddingScheme, iv []byte, params ...interface{}) (*CipherContext, error) {
 	ctx := context.Background()
 	if err := cipher.SetKey(ctx, key); err != nil {
 		return nil, errors.Annotate(err, "failed to set key: %w")
@@ -101,49 +100,11 @@ func (c *CipherContext) encryptSync(ctx context.Context, data []byte) ([]byte, e
 		return nil, err
 	}
 
-	switch c.mode {
-	case ECB:
-		return c.encryptECB(ctx, padded)
-	case CBC:
-		return c.encryptCBC(ctx, padded)
-	case PCBC:
-		return c.encryptPCBC(ctx, padded)
-	case CFB:
-		return c.encryptCFB(ctx, padded)
-	case OFB:
-		return c.encryptOFB(ctx, padded)
-	case CTR:
-		return c.encryptCTR(ctx, padded)
-	case RandomDelta:
-		return c.encryptRandomDelta(ctx, padded)
-	default:
-		return nil, errors.ErrInvalidMode
-	}
+	return c.mode.Encrypt(ctx, c.cipher, padded, c.iv)
 }
 
 func (c *CipherContext) decryptSync(ctx context.Context, data []byte) ([]byte, error) {
-	var decrypted []byte
-	var err error
-
-	switch c.mode {
-	case ECB:
-		decrypted, err = c.decryptECB(ctx, data)
-	case CBC:
-		decrypted, err = c.decryptCBC(ctx, data)
-	case PCBC:
-		decrypted, err = c.decryptPCBC(ctx, data)
-	case CFB:
-		decrypted, err = c.decryptCFB(ctx, data)
-	case OFB:
-		decrypted, err = c.decryptOFB(ctx, data)
-	case CTR:
-		decrypted, err = c.decryptCTR(ctx, data)
-	case RandomDelta:
-		decrypted, err = c.decryptRandomDelta(ctx, data)
-	default:
-		return nil, errors.ErrInvalidMode
-	}
-
+	decrypted, err := c.mode.Decrypt(ctx, c.cipher, data, c.iv)
 	if err != nil {
 		return nil, err
 	}
@@ -151,260 +112,7 @@ func (c *CipherContext) decryptSync(ctx context.Context, data []byte) ([]byte, e
 	return Unpad(decrypted, c.padding)
 }
 
-func (c *CipherContext) encryptECB(ctx context.Context, data []byte) ([]byte, error) {
-	blockSize := c.cipher.BlockSize()
-	result := make([]byte, len(data))
-	numBlocks := len(data) / blockSize
 
-	var wg sync.WaitGroup
-	errChan := make(chan error, numBlocks)
-
-	for i := 0; i < numBlocks; i++ {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			start := idx * blockSize
-			end := start + blockSize
-			encrypted, err := c.cipher.Encrypt(ctx, data[start:end])
-			if err != nil {
-				errChan <- err
-				return
-			}
-			copy(result[start:end], encrypted)
-		}(i)
-	}
-
-	wg.Wait()
-	close(errChan)
-
-	if err := <-errChan; err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (c *CipherContext) decryptECB(ctx context.Context, data []byte) ([]byte, error) {
-	blockSize := c.cipher.BlockSize()
-	result := make([]byte, len(data))
-	numBlocks := len(data) / blockSize
-
-	var wg sync.WaitGroup
-	errChan := make(chan error, numBlocks)
-
-	for i := 0; i < numBlocks; i++ {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			start := idx * blockSize
-			end := start + blockSize
-			decrypted, err := c.cipher.Decrypt(ctx, data[start:end])
-			if err != nil {
-				errChan <- err
-				return
-			}
-			copy(result[start:end], decrypted)
-		}(i)
-	}
-
-	wg.Wait()
-	close(errChan)
-
-	if err := <-errChan; err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (c *CipherContext) encryptCBC(ctx context.Context, data []byte) ([]byte, error) {
-	blockSize := c.cipher.BlockSize()
-	result := make([]byte, len(data))
-	prev := c.iv
-
-	for i := 0; i < len(data); i += blockSize {
-		block := xorBlocks(data[i:i+blockSize], prev)
-		encrypted, err := c.cipher.Encrypt(ctx, block)
-		if err != nil {
-			return nil, err
-		}
-		copy(result[i:i+blockSize], encrypted)
-		prev = encrypted
-	}
-
-	return result, nil
-}
-
-func (c *CipherContext) decryptCBC(ctx context.Context, data []byte) ([]byte, error) {
-	blockSize := c.cipher.BlockSize()
-	result := make([]byte, len(data))
-	prev := c.iv
-
-	for i := 0; i < len(data); i += blockSize {
-		encrypted := data[i : i+blockSize]
-		decrypted, err := c.cipher.Decrypt(ctx, encrypted)
-		if err != nil {
-			return nil, err
-		}
-		copy(result[i:i+blockSize], xorBlocks(decrypted, prev))
-		prev = encrypted
-	}
-
-	return result, nil
-}
-
-func (c *CipherContext) encryptPCBC(ctx context.Context, data []byte) ([]byte, error) {
-	blockSize := c.cipher.BlockSize()
-	result := make([]byte, len(data))
-	prev := c.iv
-
-	for i := 0; i < len(data); i += blockSize {
-		plainBlock := data[i : i+blockSize]
-		block := xorBlocks(plainBlock, prev)
-		encrypted, err := c.cipher.Encrypt(ctx, block)
-		if err != nil {
-			return nil, err
-		}
-		copy(result[i:i+blockSize], encrypted)
-		prev = xorBlocks(plainBlock, encrypted)
-	}
-
-	return result, nil
-}
-
-func (c *CipherContext) decryptPCBC(ctx context.Context, data []byte) ([]byte, error) {
-	blockSize := c.cipher.BlockSize()
-	result := make([]byte, len(data))
-	prev := c.iv
-
-	for i := 0; i < len(data); i += blockSize {
-		encrypted := data[i : i+blockSize]
-		decrypted, err := c.cipher.Decrypt(ctx, encrypted)
-		if err != nil {
-			return nil, err
-		}
-		plainBlock := xorBlocks(decrypted, prev)
-		copy(result[i:i+blockSize], plainBlock)
-		prev = xorBlocks(plainBlock, encrypted)
-	}
-
-	return result, nil
-}
-
-func (c *CipherContext) encryptCFB(ctx context.Context, data []byte) ([]byte, error) {
-	blockSize := c.cipher.BlockSize()
-	result := make([]byte, len(data))
-	prev := c.iv
-
-	for i := 0; i < len(data); i += blockSize {
-		encrypted, err := c.cipher.Encrypt(ctx, prev)
-		if err != nil {
-			return nil, err
-		}
-		cipherBlock := xorBlocks(data[i:i+blockSize], encrypted)
-		copy(result[i:i+blockSize], cipherBlock)
-		prev = cipherBlock
-	}
-
-	return result, nil
-}
-
-func (c *CipherContext) decryptCFB(ctx context.Context, data []byte) ([]byte, error) {
-	blockSize := c.cipher.BlockSize()
-	result := make([]byte, len(data))
-	prev := c.iv
-
-	for i := 0; i < len(data); i += blockSize {
-		encrypted, err := c.cipher.Encrypt(ctx, prev)
-		if err != nil {
-			return nil, err
-		}
-		cipherBlock := data[i : i+blockSize]
-		copy(result[i:i+blockSize], xorBlocks(cipherBlock, encrypted))
-		prev = cipherBlock
-	}
-
-	return result, nil
-}
-
-func (c *CipherContext) encryptOFB(ctx context.Context, data []byte) ([]byte, error) {
-	blockSize := c.cipher.BlockSize()
-	result := make([]byte, len(data))
-	keystream := c.iv
-
-	for i := 0; i < len(data); i += blockSize {
-		encrypted, err := c.cipher.Encrypt(ctx, keystream)
-		if err != nil {
-			return nil, err
-		}
-		copy(result[i:i+blockSize], xorBlocks(data[i:i+blockSize], encrypted))
-		keystream = encrypted
-	}
-
-	return result, nil
-}
-
-func (c *CipherContext) decryptOFB(ctx context.Context, data []byte) ([]byte, error) {
-	return c.encryptOFB(ctx, data)
-}
-
-func (c *CipherContext) encryptCTR(ctx context.Context, data []byte) ([]byte, error) {
-	blockSize := c.cipher.BlockSize()
-	result := make([]byte, len(data))
-	counter := make([]byte, blockSize)
-	copy(counter, c.iv)
-
-	for i := 0; i < len(data); i += blockSize {
-		encrypted, err := c.cipher.Encrypt(ctx, counter)
-		if err != nil {
-			return nil, err
-		}
-		copy(result[i:i+blockSize], xorBlocks(data[i:i+blockSize], encrypted))
-		incrementCounter(counter)
-	}
-
-	return result, nil
-}
-
-func (c *CipherContext) decryptCTR(ctx context.Context, data []byte) ([]byte, error) {
-	return c.encryptCTR(ctx, data)
-}
-
-func (c *CipherContext) encryptRandomDelta(ctx context.Context, data []byte) ([]byte, error) {
-	blockSize := c.cipher.BlockSize()
-	result := make([]byte, len(data))
-	delta := c.iv
-
-	for i := 0; i < len(data); i += blockSize {
-		block := xorBlocks(data[i:i+blockSize], delta)
-		encrypted, err := c.cipher.Encrypt(ctx, block)
-		if err != nil {
-			return nil, err
-		}
-		copy(result[i:i+blockSize], encrypted)
-		delta = encrypted
-	}
-
-	return result, nil
-}
-
-func (c *CipherContext) decryptRandomDelta(ctx context.Context, data []byte) ([]byte, error) {
-	blockSize := c.cipher.BlockSize()
-	result := make([]byte, len(data))
-	delta := c.iv
-
-	for i := 0; i < len(data); i += blockSize {
-		encrypted := data[i : i+blockSize]
-		decrypted, err := c.cipher.Decrypt(ctx, encrypted)
-		if err != nil {
-			return nil, err
-		}
-		copy(result[i:i+blockSize], xorBlocks(decrypted, delta))
-		delta = encrypted
-	}
-
-	return result, nil
-}
 
 // EncryptFile encrypts a file asynchronously.
 func (c *CipherContext) EncryptFile(ctx context.Context, inputPath, outputPath string) error {
@@ -504,19 +212,4 @@ func (c *CipherContext) DecryptStream(ctx context.Context, reader io.Reader, wri
 	return errors.Annotate(err, "failed to write to stream: %w")
 }
 
-func xorBlocks(a, b []byte) []byte {
-	result := make([]byte, len(a))
-	for i := range a {
-		result[i] = a[i] ^ b[i]
-	}
-	return result
-}
 
-func incrementCounter(counter []byte) {
-	for i := len(counter) - 1; i >= 0; i-- {
-		counter[i]++
-		if counter[i] != 0 {
-			break
-		}
-	}
-}

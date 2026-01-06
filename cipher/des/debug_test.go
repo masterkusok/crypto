@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestDESDebug(t *testing.T) {
@@ -14,26 +16,20 @@ func TestDESDebug(t *testing.T) {
 	plaintext := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF}
 
 	if err := des.SetKey(ctx, key); err != nil {
-		t.Fatalf("SetKey failed: %v", err)
+		require.NoError(t, err)
 	}
 
 	fmt.Printf("Plaintext: %x\n", plaintext)
 
 	encrypted, err := des.Encrypt(ctx, plaintext)
-	if err != nil {
-		t.Fatalf("Encrypt failed: %v", err)
-	}
+	require.NoError(t, err)
 	fmt.Printf("Encrypted: %x\n", encrypted)
 
 	decrypted, err := des.Decrypt(ctx, encrypted)
-	if err != nil {
-		t.Fatalf("Decrypt failed: %v", err)
-	}
+	require.NoError(t, err)
 	fmt.Printf("Decrypted: %x\n", decrypted)
 
 	encrypted2, err := des.Encrypt(ctx, decrypted)
-	if err != nil {
-		t.Fatalf("Encrypt2 failed: %v", err)
-	}
+	require.NoError(t, err)
 	fmt.Printf("Encrypted2: %x\n", encrypted2)
 }
