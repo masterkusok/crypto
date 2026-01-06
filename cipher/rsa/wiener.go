@@ -1,26 +1,41 @@
 package rsa
 
-import (
-	"math/big"
-)
+import "math/big"
 
-// WienerAttack attempts to recover private key d using Wiener's attack.
-// Returns d if successful, nil otherwise.
-// Attack works when d < N^(1/4) / 3
-func WienerAttack(pub *PublicKey) *big.Int {
-	// Compute continued fraction expansion of e/N
+// Convergent represents a convergent (numerator/denominator) of continued fraction.
+type Convergent struct {
+	Numerator   *big.Int
+	Denominator *big.Int
+}
+
+// WienerAttackResult contains results of Wiener attack.
+type WienerAttackResult struct {
+	D           *big.Int      // Private exponent
+	Phi         *big.Int      // Euler's totient function φ(N)
+	Convergents []Convergent  // All computed convergents
+	Success     bool          // Whether attack succeeded
+}
+
+// WienerAttack performs Wiener's attack on RSA public key.
+// Returns private exponent d, φ(N), and all convergents if successful.
+func WienerAttack(pub *PublicKey) *WienerAttackResult {
+	result := &WienerAttackResult{
+		Convergents: make([]Convergent, 0),
+	}
+
 	convergents := continuedFraction(pub.E, pub.N)
+	result.Convergents = convergents
 
 	for _, conv := range convergents {
-		k := conv[0]
-		d := conv[1]
+		k := conv.Numerator
+		d := conv.Denominator
 
-		if k.Cmp(big.NewInt(0)) == 0 {
+		if k.Cmp(big.NewInt(0)) == 0 || d.Cmp(big.NewInt(0)) == 0 {
 			continue
 		}
 
-		// Check if this d works: e*d ≡ 1 (mod φ(N))
-		// We can verify by checking if (e*d - 1) / k gives us φ(N)
+		// Check if ed ≡ 1 (mod φ), i.e., ed = 1 + kφ
+		// So φ = (ed - 1) / k
 		ed := new(big.Int).Mul(pub.E, d)
 		ed.Sub(ed, big.NewInt(1))
 
@@ -30,66 +45,78 @@ func WienerAttack(pub *PublicKey) *big.Int {
 
 		phi := new(big.Int).Div(ed, k)
 
-		// Try to factor N using φ(N)
-		// N = p*q, φ(N) = (p-1)(q-1) = N - p - q + 1
-		// So: p + q = N - φ(N) + 1
+		// φ(N) must be less than N
+		if phi.Cmp(pub.N) >= 0 {
+			continue
+		}
+
+		// φ(N) = (p-1)(q-1) = N - (p+q) + 1
+		// So p + q = N - φ + 1
 		pPlusQ := new(big.Int).Sub(pub.N, phi)
 		pPlusQ.Add(pPlusQ, big.NewInt(1))
 
-		// Solve: p + q = pPlusQ, p*q = N
-		// p = (pPlusQ ± sqrt(pPlusQ^2 - 4N)) / 2
+		// p and q are roots of x² - (p+q)x + N = 0
+		// discriminant = (p+q)² - 4N = (p-q)²
 		discriminant := new(big.Int).Mul(pPlusQ, pPlusQ)
-		discriminant.Sub(discriminant, new(big.Int).Mul(big.NewInt(4), pub.N))
+		discriminant.Sub(discriminant, new(big.Int).Lsh(pub.N, 2))
 
 		if discriminant.Sign() < 0 {
 			continue
 		}
 
+		// Check if discriminant is perfect square
 		sqrtD := new(big.Int).Sqrt(discriminant)
 		if new(big.Int).Mul(sqrtD, sqrtD).Cmp(discriminant) != 0 {
 			continue
 		}
 
+		// p = ((p+q) + sqrt(discriminant)) / 2
+		// q = ((p+q) - sqrt(discriminant)) / 2
 		p := new(big.Int).Add(pPlusQ, sqrtD)
-		p.Div(p, big.NewInt(2))
+		p.Rsh(p, 1)
 
 		q := new(big.Int).Sub(pPlusQ, sqrtD)
-		q.Div(q, big.NewInt(2))
+		q.Rsh(q, 1)
 
-		// Verify
+		// Verify that p * q = N
 		if new(big.Int).Mul(p, q).Cmp(pub.N) == 0 {
-			return d
+			result.D = d
+			result.Phi = phi
+			result.Success = true
+			return result
 		}
 	}
 
-	return nil
+	return result
 }
 
-// continuedFraction computes convergents of continued fraction expansion of a/b.
-func continuedFraction(a, b *big.Int) [][2]*big.Int {
-	var convergents [][2]*big.Int
+// continuedFraction computes convergents of continued fraction expansion of e/N.
+func continuedFraction(e, n *big.Int) []Convergent {
+	var convergents []Convergent
 
 	n0 := big.NewInt(0)
 	n1 := big.NewInt(1)
 	d0 := big.NewInt(1)
 	d1 := big.NewInt(0)
 
-	x := new(big.Int).Set(a)
-	y := new(big.Int).Set(b)
+	x := new(big.Int).Set(e)
+	y := new(big.Int).Set(n)
 
 	for i := 0; i < 10000 && y.Cmp(big.NewInt(0)) > 0; i++ {
 		q := new(big.Int).Div(x, y)
 
-		// Update convergents
+		// Update convergents: n_i = q * n_{i-1} + n_{i-2}
 		n2 := new(big.Int).Mul(q, n1)
 		n2.Add(n2, n0)
 
 		d2 := new(big.Int).Mul(q, d1)
 		d2.Add(d2, d0)
 
-		convergents = append(convergents, [2]*big.Int{n2, d2})
+		convergents = append(convergents, Convergent{
+			Numerator:   new(big.Int).Set(n2),
+			Denominator: new(big.Int).Set(d2),
+		})
 
-		// Update for next iteration
 		n0, n1 = n1, n2
 		d0, d1 = d1, d2
 
@@ -104,12 +131,15 @@ func continuedFraction(a, b *big.Int) [][2]*big.Int {
 
 // IsVulnerableToWiener checks if public key is vulnerable to Wiener attack.
 func IsVulnerableToWiener(pub *PublicKey) bool {
+	result := WienerAttack(pub)
+	if !result.Success {
+		return false
+	}
+
 	// Vulnerable if d < N^(1/4) / 3
 	nSqrt := new(big.Int).Sqrt(pub.N)
 	nFourthRoot := new(big.Int).Sqrt(nSqrt)
 	threshold := new(big.Int).Div(nFourthRoot, big.NewInt(3))
 
-	// We can't check d directly without private key, but we can try the attack
-	d := WienerAttack(pub)
-	return d != nil && d.Cmp(threshold) < 0
+	return result.D.Cmp(threshold) < 0
 }

@@ -32,8 +32,4 @@ const (
 	ErrInvalidIVSize        ConstError = "invalid IV size"
 	ErrInvalidPaddingScheme ConstError = "invalid padding scheme"
 	ErrInvalidMode          ConstError = "invalid cipher mode"
-	ErrMessageTooLarge      ConstError = "message too large for RSA key"
-	ErrInvalidSignature     ConstError = "invalid signature"
-	ErrInvalidPublicKey     ConstError = "invalid public key"
-	ErrInvalidPrivateKey    ConstError = "invalid private key"
 )

@@ -1,5 +1,5 @@
 // Package tables contains all neccessary tables for different ciphers (for
-// example, DES, RSA etc).
+// example, DES).
 package tables
 
 // InitialPermutation is the initial permutation table for DES (IP).
@@ -128,3 +128,30 @@ var PC2 = []int{
 
 // KeyShifts defines the number of left shifts for each round in DES key schedule.
 var KeyShifts = []int{1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1}
+
+// Rijndael constants
+
+// RijndaelRcon are round constants for Rijndael key expansion.
+// These are powers of x in GF(2^8) with polynomial 0x11B.
+var RijndaelRcon = []byte{
+	0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36,
+}
+
+// RijndaelMixColumnMatrix is the MixColumns transformation matrix.
+var RijndaelMixColumnMatrix = [4][4]byte{
+	{0x02, 0x03, 0x01, 0x01},
+	{0x01, 0x02, 0x03, 0x01},
+	{0x01, 0x01, 0x02, 0x03},
+	{0x03, 0x01, 0x01, 0x02},
+}
+
+// RijndaelInvMixColumnMatrix is the inverse MixColumns transformation matrix.
+var RijndaelInvMixColumnMatrix = [4][4]byte{
+	{0x0E, 0x0B, 0x0D, 0x09},
+	{0x09, 0x0E, 0x0B, 0x0D},
+	{0x0D, 0x09, 0x0E, 0x0B},
+	{0x0B, 0x0D, 0x09, 0x0E},
+}
+
+// AESPolynomial is the standard AES irreducible polynomial (x^8 + x^4 + x^3 + x + 1).
+const AESPolynomial = 0x1B

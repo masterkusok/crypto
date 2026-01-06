@@ -8,10 +8,11 @@ crypto/
 ├── bits/           # Функции для работы с битами и перестановками
 ├── cipher/         # Криптографические алгоритмы и режимы шифрования
 │   ├── des/       # Реализация DES
-│   └── deal/      # Реализация DEAL
+│   ├── deal/      # Реализация DEAL
+│   └── rsa/       # Реализация RSA
 ├── errors/         # Константные ошибки
-├── tables/         # Таблицы перестановок и S-блоки для DES
-└── examples/       # Примеры использования
+├── math/           # Теоретико-числовые функции
+└── tables/         # Таблицы перестановок и S-блоки для DES
 
 ```
 
@@ -93,7 +94,78 @@ err := deal.SetKey(ctx, key) // 24 байта
 encrypted, err := deal.Encrypt(ctx, plaintext) // 16 байт
 ```
 
-### 6. Контекст шифрования (cipher/context.go)
+### 6. Теоретико-числовые функции (math/math.go)
+
+Пакет предоставляет базовые функции теории чисел:
+
+```go
+// Символ Лежандра (a/p) для простого p
+legendre := math.Legendre(2, 7) // 1
+
+// Символ Якоби (a/n) для нечетного n
+jacobi := math.Jacobi(5, 9) // 1
+
+// НОД через алгоритм Евклида
+gcd := math.GCD(48, 18) // 6
+
+// Расширенный алгоритм Евклида (НОД + соотношение Безу)
+gcd, x, y := math.ExtendedGCD(48, 18) // gcd=6, 48*x + 18*y = 6
+
+// Возведение в степень по модулю
+result := math.ModPow(2, 10, 1000) // 24
+```
+
+#### Вероятностные тесты простоты (math/primality.go)
+
+Реализованы на базе паттерна "Шаблонный метод" с интерфейсом `PrimalityTester`:
+
+```go
+// Тест Ферма
+fermat := math.NewFermatTest()
+isPrime := fermat.IsProbablyPrime(17, 0.99) // true
+
+// Тест Соловея-Штрассена
+solovay := math.NewSolovayStrassenTest()
+isPrime = solovay.IsProbablyPrime(561, 0.99) // false (число Кармайкла)
+
+// Тест Миллера-Рабина
+miller := math.NewMillerRabinTest()
+isPrime = miller.IsProbablyPrime(104729, 0.999) // true
+```
+
+### 7. Алгоритм RSA (cipher/rsa/rsa.go)
+
+Сервис для шифрования/дешифрования с использованием RSA:
+- Вложенный сервис `KeyGenerator` для генерации ключей
+- Передача теста простоты через интерфейс `PrimalityTester`
+- Защита от атаки Ферма (|p-q| достаточно велико)
+- Защита от атаки Винера (d > N^(1/4) / 3)
+- Возможность многократной генерации ключей
+- Атака Винера для восстановления приватного ключа
+
+```go
+// Создание RSA сервиса с тестом Миллера-Рабина
+rsa := rsa.NewRSA(math.NewMillerRabinTest(), 0.99, 512)
+
+// Генерация ключевой пары
+err := rsa.GenerateKeyPair()
+
+// Шифрование
+ciphertext, err := rsa.Encrypt([]byte("Secret message"))
+
+// Дешифрование
+plaintext, err := rsa.Decrypt(ciphertext)
+
+// Атака Винера
+result := rsa.WienerAttack(publicKey)
+if result.Success {
+    // result.D - найденная экспонента
+    // result.Phi - функция Эйлера
+    // result.Convergents - подходящие дроби
+}
+```
+
+### 8. Контекст шифрования (cipher/context.go)
 
 Класс `CipherContext` предоставляет высокоуровневый API для шифрования с поддержкой:
 
@@ -134,82 +206,6 @@ err = cipherCtx.EncryptFile(ctx, "input.txt", "encrypted.bin")
 err = cipherCtx.DecryptFile(ctx, "encrypted.bin", "decrypted.txt")
 ```
 
-## Примеры использования
-
-### DES с различными режимами
-
-```go
-package main
-
-import (
-    "context"
-    "github.com/masterkusok/crypto/cipher"
-    "github.com/masterkusok/crypto/cipher/des"
-)
-
-func main() {
-    ctx := context.Background()
-    key := []byte{0x13, 0x34, 0x57, 0x79, 0x9B, 0xBC, 0xDF, 0xF1}
-    iv := []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-    
-    cipherCtx, _ := cipher.NewCipherContext(
-        des.NewDES(),
-        key,
-        cipher.CBC,
-        cipher.PKCS7,
-        iv,
-    )
-    
-    plaintext := []byte("Secret message")
-    encrypted, _ := cipherCtx.EncryptBytes(ctx, plaintext)
-    decrypted, _ := cipherCtx.DecryptBytes(ctx, encrypted)
-}
-```
-
-### DEAL шифрование
-
-```go
-package main
-
-import (
-    "context"
-    "github.com/masterkusok/crypto/cipher"
-    "github.com/masterkusok/crypto/cipher/deal"
-)
-
-func main() {
-    ctx := context.Background()
-    key := make([]byte, 24) // 24 байта для DEAL
-    iv := make([]byte, 16)  // 16 байт для DEAL
-    
-    cipherCtx, _ := cipher.NewCipherContext(
-        deal.NewDEAL(),
-        key,
-        cipher.CTR,
-        cipher.PKCS7,
-        iv,
-    )
-    
-    plaintext := []byte("Secret message")
-    encrypted, _ := cipherCtx.EncryptBytes(ctx, plaintext)
-    decrypted, _ := cipherCtx.DecryptBytes(ctx, encrypted)
-}
-```
-
-### Шифрование файлов
-
-```go
-err := cipherCtx.EncryptFile(ctx, "document.pdf", "document.pdf.enc")
-err = cipherCtx.DecryptFile(ctx, "document.pdf.enc", "document_decrypted.pdf")
-```
-
-## Запуск примеров
-
-```bash
-cd examples
-go run main.go
-```
-
 ## Тестирование
 
 ```bash
@@ -234,5 +230,5 @@ go test ./...
 
 - **Adapter**: `DESAdapter` адаптирует DES для использования в DEAL
 - **Strategy**: Различные режимы шифрования и набивки
-- **Template Method**: `FeistelNetwork` определяет структуру, конкретные алгоритмы реализуют детали
-- **Factory**: Конструкторы `NewDES()`, `NewDEAL()`, `NewCipherContext()`
+- **Template Method**: `FeistelNetwork` определяет структуру, конкретные алгоритмы реализуют детали; `primalityTest` определяет алгоритм теста простоты, конкретные тесты реализуют одну итерацию через функцию
+- **Nested Type**: `KeyGenerator` - вложенный сервис для генерации ключей RSA
