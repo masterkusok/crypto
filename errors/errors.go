@@ -32,4 +32,8 @@ const (
 	ErrInvalidIVSize        ConstError = "invalid IV size"
 	ErrInvalidPaddingScheme ConstError = "invalid padding scheme"
 	ErrInvalidMode          ConstError = "invalid cipher mode"
+	ErrInvalidParameters    ConstError = "invalid parameters"
+	ErrInvalidPrivateKey    ConstError = "invalid private key"
+	ErrInvalidPublicKey     ConstError = "invalid public key"
+	ErrParameterMismatch    ConstError = "parameter mismatch"
 )
