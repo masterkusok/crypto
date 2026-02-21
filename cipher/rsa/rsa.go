@@ -1,5 +1,3 @@
-// Package rsa contains key generation, cipher, and attacks implementation for
-// RSA encryption algorithm
 package rsa
 
 import (
@@ -10,7 +8,6 @@ import (
 	cryptoMath "github.com/masterkusok/crypto/math"
 )
 
-// KeyGenerator generates RSA key pairs.
 type KeyGenerator struct {
 	minProbability float64
 	bitLength      int
@@ -18,13 +15,11 @@ type KeyGenerator struct {
 	testerBig      cryptoMath.PrimalityTesterBig
 }
 
-// PublicKey represents RSA public key.
 type PublicKey struct {
 	N *big.Int
 	E *big.Int
 }
 
-// PrivateKey represents RSA private key.
 type PrivateKey struct {
 	PublicKey
 	D *big.Int
@@ -32,14 +27,12 @@ type PrivateKey struct {
 	Q *big.Int
 }
 
-// RSA provides RSA encryption/decryption service.
 type RSA struct {
 	KeyGen     *KeyGenerator
 	privateKey *PrivateKey
 	publicKey  *PublicKey
 }
 
-// NewRSA creates new RSA service with embedded key generator.
 func NewRSA(tester cryptoMath.PrimalityTester, minProbability float64, bitLength int) *RSA {
 	return &RSA{
 		KeyGen: &KeyGenerator{
@@ -51,8 +44,6 @@ func NewRSA(tester cryptoMath.PrimalityTester, minProbability float64, bitLength
 	}
 }
 
-// GenerateKeyPair generates new RSA key pair.
-// Protects against Fermat and Wiener attacks.
 func (r *RSA) GenerateKeyPair() error {
 	p, err := r.KeyGen.generatePrime()
 	if err != nil {
@@ -128,7 +119,6 @@ func (kg *KeyGenerator) generatePrime() (*big.Int, error) {
 	}
 }
 
-// Encrypt encrypts message with public key.
 func (r *RSA) Encrypt(message []byte) ([]byte, error) {
 	if r.publicKey == nil {
 		return nil, errors.New("no public key available")
@@ -139,27 +129,24 @@ func (r *RSA) Encrypt(message []byte) ([]byte, error) {
 		return nil, errors.New("message too large")
 	}
 
-	c := new(big.Int).Exp(m, r.publicKey.E, r.publicKey.N)
+	c := cryptoMath.ModPowBig(m, r.publicKey.E, r.publicKey.N)
 	return c.Bytes(), nil
 }
 
-// Decrypt decrypts ciphertext with private key.
 func (r *RSA) Decrypt(ciphertext []byte) ([]byte, error) {
 	if r.privateKey == nil {
 		return nil, errors.New("no private key available")
 	}
 
 	c := new(big.Int).SetBytes(ciphertext)
-	m := new(big.Int).Exp(c, r.privateKey.D, r.privateKey.N)
+	m := cryptoMath.ModPowBig(c, r.privateKey.D, r.privateKey.N)
 	return m.Bytes(), nil
 }
 
-// GetPublicKey returns current public key.
 func (r *RSA) GetPublicKey() *PublicKey {
 	return r.publicKey
 }
 
-// GetPrivateKey returns current private key.
 func (r *RSA) GetPrivateKey() *PrivateKey {
 	return r.privateKey
 }

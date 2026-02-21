@@ -1,4 +1,3 @@
-// Package des implements the DES encryption algorithm.
 package des
 
 import (
@@ -16,10 +15,8 @@ const (
 	numRounds    = 16
 )
 
-// KeyScheduler implements DES key scheduling.
 type KeyScheduler struct{}
 
-// GenerateRoundKeys generates 16 round keys for DES.
 func (k *KeyScheduler) GenerateRoundKeys(ctx context.Context, key []byte) ([][]byte, error) {
 	if len(key) != desKeySize {
 		return nil, errors.ErrInvalidKeySize
@@ -66,10 +63,8 @@ func leftShift28(data []byte, shifts int) []byte {
 	return result
 }
 
-// RoundFunction implements DES F function.
 type RoundFunction struct{}
 
-// Transform applies the DES F function.
 func (r *RoundFunction) Transform(ctx context.Context, block, roundKey []byte) ([]byte, error) {
 	expanded, err := bits.Permute(block, tables.ExpansionTable, bits.MSBFirst, bits.StartFromOne)
 	if err != nil {
@@ -109,24 +104,22 @@ func getSixBits(data []byte, index int) byte {
 	return ((data[byteIdx] << (bitOffset - 2)) | (data[byteIdx+1] >> (10 - bitOffset))) & 0x3F
 }
 
-// DES implements the DES cipher.
 type DES struct {
 	*cipher.FeistelNetwork
 }
 
-// NewDES creates a new DES cipher.
 func NewDES() *DES {
 	return &DES{
 		FeistelNetwork: cipher.NewFeistelNetwork(&KeyScheduler{}, &RoundFunction{}, desBlockSize),
 	}
 }
 
-// Encrypt encrypts a block with initial and final permutations.
 func (d *DES) Encrypt(ctx context.Context, block []byte) ([]byte, error) {
 	if len(block) != desBlockSize {
 		return nil, errors.ErrInvalidBlockSize
 	}
 
+	// Применяем начальную перестановку IP
 	permuted, err := bits.Permute(block, tables.InitialPermutation, bits.MSBFirst, bits.StartFromOne)
 	if err != nil {
 		return nil, errors.Annotate(err, "initial permutation failed: %w")
@@ -140,7 +133,6 @@ func (d *DES) Encrypt(ctx context.Context, block []byte) ([]byte, error) {
 	return bits.Permute(encrypted, tables.FinalPermutation, bits.MSBFirst, bits.StartFromOne)
 }
 
-// Decrypt decrypts a block with initial and final permutations.
 func (d *DES) Decrypt(ctx context.Context, block []byte) ([]byte, error) {
 	if len(block) != desBlockSize {
 		return nil, errors.ErrInvalidBlockSize

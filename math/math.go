@@ -1,15 +1,11 @@
-// Package math provides number-theoretic functions.
 package math
 
 import "math/big"
 
-// Legendre computes the Legendre symbol (a/p) where p is an odd prime.
-// Returns 1 if a is a quadratic residue mod p, -1 if not, 0 if a ≡ 0 (mod p).
 func Legendre(a, p int64) int {
 	return Jacobi(a, p)
 }
 
-// Jacobi computes the Jacobi symbol (a/n) for odd n > 0.
 func Jacobi(a, n int64) int {
 	if n <= 0 || n%2 == 0 {
 		return 0
@@ -39,7 +35,6 @@ func Jacobi(a, n int64) int {
 	return 0
 }
 
-// GCD computes the greatest common divisor of a and b using Euclidean algorithm.
 func GCD(a, b int64) int64 {
 	if a < 0 {
 		a = -a
@@ -54,8 +49,6 @@ func GCD(a, b int64) int64 {
 	return a
 }
 
-// ExtendedGCD computes GCD(a, b) and finds x, y such that ax + by = gcd(a, b).
-// Returns (gcd, x, y).
 func ExtendedGCD(a, b int64) (gcd, x, y int64) {
 	if b == 0 {
 		return a, 1, 0
@@ -74,7 +67,6 @@ func ExtendedGCD(a, b int64) (gcd, x, y int64) {
 	return a, x0, y0
 }
 
-// ModPow computes (base^exp) mod m using binary exponentiation.
 func ModPow(base, exp, m int64) int64 {
 	if m == 1 {
 		return 0
@@ -94,8 +86,6 @@ func ModPow(base, exp, m int64) int64 {
 	return result
 }
 
-// ExtendedGCDBig computes GCD(a, b) and finds x, y such that ax + by = gcd(a, b) for big.Int.
-// Returns (gcd, x, y).
 func ExtendedGCDBig(a, b *big.Int) (gcd, x, y *big.Int) {
 	if b.Cmp(big.NewInt(0)) == 0 {
 		return new(big.Int).Set(a), big.NewInt(1), big.NewInt(0)
@@ -118,8 +108,6 @@ func ExtendedGCDBig(a, b *big.Int) (gcd, x, y *big.Int) {
 	return aCopy, x0, y0
 }
 
-// ModInverseBig computes modular multiplicative inverse of a modulo m using Extended Euclidean algorithm.
-// Returns x such that (a * x) ≡ 1 (mod m), or nil if inverse doesn't exist.
 func ModInverseBig(a, m *big.Int) *big.Int {
 	gcd, x, _ := ExtendedGCDBig(a, m)
 	
@@ -134,4 +122,26 @@ func ModInverseBig(a, m *big.Int) *big.Int {
 	}
 
 	return x
+}
+
+func ModPowBig(base, exp, m *big.Int) *big.Int {
+	if m.Cmp(big.NewInt(1)) == 0 {
+		return big.NewInt(0)
+	}
+
+	result := big.NewInt(1)
+	base = new(big.Int).Mod(base, m)
+	exp = new(big.Int).Set(exp)
+
+	for exp.Sign() > 0 {
+		if new(big.Int).And(exp, big.NewInt(1)).Cmp(big.NewInt(1)) == 0 {
+			result.Mul(result, base)
+			result.Mod(result, m)
+		}
+		exp.Rsh(exp, 1)
+		base.Mul(base, base)
+		base.Mod(base, m)
+	}
+
+	return result
 }

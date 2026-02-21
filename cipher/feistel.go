@@ -6,7 +6,6 @@ import (
 	"github.com/masterkusok/crypto/errors"
 )
 
-// FeistelNetwork implements a Feistel cipher structure.
 type FeistelNetwork struct {
 	keyScheduler  KeyScheduler
 	RoundFunction RoundFunction
@@ -14,7 +13,6 @@ type FeistelNetwork struct {
 	blockSize     int
 }
 
-// NewFeistelNetwork creates a new Feistel network cipher.
 func NewFeistelNetwork(keyScheduler KeyScheduler, roundFunction RoundFunction, blockSize int) *FeistelNetwork {
 	return &FeistelNetwork{
 		keyScheduler:  keyScheduler,
@@ -23,17 +21,17 @@ func NewFeistelNetwork(keyScheduler KeyScheduler, roundFunction RoundFunction, b
 	}
 }
 
-// SetKey generates and stores round keys.
 func (f *FeistelNetwork) SetKey(ctx context.Context, key []byte) error {
 	roundKeys, err := f.keyScheduler.GenerateRoundKeys(ctx, key)
 	if err != nil {
 		return errors.Annotate(err, "failed to generate round keys: %w")
 	}
+
 	f.RoundKeys = roundKeys
+
 	return nil
 }
 
-// Encrypt encrypts a block using the Feistel structure.
 func (f *FeistelNetwork) Encrypt(ctx context.Context, block []byte) ([]byte, error) {
 	if len(block) != f.blockSize {
 		return nil, errors.ErrInvalidBlockSize
@@ -62,7 +60,6 @@ func (f *FeistelNetwork) Encrypt(ctx context.Context, block []byte) ([]byte, err
 	return result, nil
 }
 
-// Decrypt decrypts a block using the Feistel structure.
 func (f *FeistelNetwork) Decrypt(ctx context.Context, block []byte) ([]byte, error) {
 	if len(block) != f.blockSize {
 		return nil, errors.ErrInvalidBlockSize
@@ -91,7 +88,6 @@ func (f *FeistelNetwork) Decrypt(ctx context.Context, block []byte) ([]byte, err
 	return result, nil
 }
 
-// BlockSize returns the block size.
 func (f *FeistelNetwork) BlockSize() int {
 	return f.blockSize
 }

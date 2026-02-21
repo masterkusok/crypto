@@ -5,13 +5,11 @@ import (
 	"sync"
 )
 
-// CipherMode defines the interface for cipher modes of operation.
 type CipherMode interface {
 	Encrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error)
 	Decrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error)
 }
 
-// ECBMode implements Electronic Codebook mode.
 type ECBMode struct{}
 
 func (m *ECBMode) Encrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error) {
@@ -80,7 +78,6 @@ func (m *ECBMode) Decrypt(ctx context.Context, cipher BlockCipher, data, iv []by
 	return result, nil
 }
 
-// CBCMode implements Cipher Block Chaining mode.
 type CBCMode struct{}
 
 func (m *CBCMode) Encrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error) {
@@ -119,7 +116,6 @@ func (m *CBCMode) Decrypt(ctx context.Context, cipher BlockCipher, data, iv []by
 	return result, nil
 }
 
-// PCBCMode implements Propagating Cipher Block Chaining mode.
 type PCBCMode struct{}
 
 func (m *PCBCMode) Encrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error) {
@@ -160,7 +156,6 @@ func (m *PCBCMode) Decrypt(ctx context.Context, cipher BlockCipher, data, iv []b
 	return result, nil
 }
 
-// CFBMode implements Cipher Feedback mode.
 type CFBMode struct{}
 
 func (m *CFBMode) Encrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error) {
@@ -199,7 +194,6 @@ func (m *CFBMode) Decrypt(ctx context.Context, cipher BlockCipher, data, iv []by
 	return result, nil
 }
 
-// OFBMode implements Output Feedback mode.
 type OFBMode struct{}
 
 func (m *OFBMode) Encrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error) {
@@ -223,7 +217,6 @@ func (m *OFBMode) Decrypt(ctx context.Context, cipher BlockCipher, data, iv []by
 	return m.Encrypt(ctx, cipher, data, iv)
 }
 
-// CTRMode implements Counter mode.
 type CTRMode struct{}
 
 func (m *CTRMode) Encrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error) {
@@ -248,7 +241,6 @@ func (m *CTRMode) Decrypt(ctx context.Context, cipher BlockCipher, data, iv []by
 	return m.Encrypt(ctx, cipher, data, iv)
 }
 
-// RandomDeltaMode implements a custom mode with random delta values.
 type RandomDeltaMode struct{}
 
 func (m *RandomDeltaMode) Encrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error) {

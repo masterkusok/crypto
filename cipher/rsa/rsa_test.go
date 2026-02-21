@@ -1,6 +1,7 @@
 package rsa
 
 import (
+	"os"
 	"testing"
 
 	cryptoMath "github.com/masterkusok/crypto/math"
@@ -85,4 +86,34 @@ func TestRSANoKeyError(t *testing.T) {
 
 	_, err = rsa.Decrypt([]byte("test"))
 	require.Error(t, err)
+}
+
+func TestRSAFileEncryption(t *testing.T) {
+	rsa := NewRSA(cryptoMath.NewMillerRabinTest(), 0.99, 512)
+	require.NoError(t, rsa.GenerateKeyPair())
+
+	inputFile := t.TempDir() + "/input.txt"
+	encryptedFile := t.TempDir() + "/encrypted.bin"
+	decryptedFile := t.TempDir() + "/decrypted.txt"
+
+	originalData := []byte("RSA file encryption test!")
+	require.NoError(t, os.WriteFile(inputFile, originalData, 0644))
+
+	data, err := os.ReadFile(inputFile)
+	require.NoError(t, err)
+
+	encrypted, err := rsa.Encrypt(data)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(encryptedFile, encrypted, 0644))
+
+	encryptedData, err := os.ReadFile(encryptedFile)
+	require.NoError(t, err)
+
+	decrypted, err := rsa.Decrypt(encryptedData)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(decryptedFile, decrypted, 0644))
+
+	decryptedData, err := os.ReadFile(decryptedFile)
+	require.NoError(t, err)
+	assert.Equal(t, originalData, decryptedData)
 }

@@ -1,4 +1,3 @@
-// Package deal implements the DEAL encryption algorithm.
 package deal
 
 import (
@@ -15,10 +14,8 @@ const (
 	dealRounds    = 6
 )
 
-// KeyScheduler implements DEAL key scheduling.
 type KeyScheduler struct{}
 
-// GenerateRoundKeys generates round keys for DEAL.
 func (k *KeyScheduler) GenerateRoundKeys(ctx context.Context, key []byte) ([][]byte, error) {
 	if len(key) != dealKeySize {
 		return nil, errors.ErrInvalidKeySize
@@ -33,17 +30,14 @@ func (k *KeyScheduler) GenerateRoundKeys(ctx context.Context, key []byte) ([][]b
 	return roundKeys, nil
 }
 
-// DESAdapter adapts DES to be used as DEAL round function.
 type DESAdapter struct {
 	des cipher.BlockCipher
 }
 
-// NewDESAdapter creates a DES adapter for DEAL.
 func NewDESAdapter() *DESAdapter {
 	return &DESAdapter{des: des.NewDES()}
 }
 
-// Transform applies DES encryption as the round function.
 func (a *DESAdapter) Transform(ctx context.Context, block, roundKey []byte) ([]byte, error) {
 	if len(block) != 8 {
 		return nil, errors.ErrInvalidBlockSize
@@ -56,12 +50,10 @@ func (a *DESAdapter) Transform(ctx context.Context, block, roundKey []byte) ([]b
 	return a.des.Encrypt(ctx, block)
 }
 
-// DEAL implements the DEAL cipher.
 type DEAL struct {
 	*cipher.FeistelNetwork
 }
 
-// NewDEAL creates a new DEAL cipher.
 func NewDEAL() *DEAL {
 	return &DEAL{
 		FeistelNetwork: cipher.NewFeistelNetwork(&KeyScheduler{}, NewDESAdapter(), dealBlockSize),

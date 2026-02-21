@@ -8,7 +8,6 @@ import (
 	"github.com/masterkusok/crypto/errors"
 )
 
-// CipherContext provides encryption/decryption with modes and padding.
 type CipherContext struct {
 	cipher  BlockCipher
 	mode    CipherMode
@@ -17,7 +16,6 @@ type CipherContext struct {
 	params  map[string]interface{}
 }
 
-// NewCipherContext creates a new cipher context.
 func NewCipherContext(cipher BlockCipher, key []byte, mode CipherMode, padding PaddingScheme, iv []byte, params ...interface{}) (*CipherContext, error) {
 	ctx := context.Background()
 	if err := cipher.SetKey(ctx, key); err != nil {
@@ -46,12 +44,21 @@ func NewCipherContext(cipher BlockCipher, key []byte, mode CipherMode, padding P
 	}, nil
 }
 
-// EncryptBytes encrypts data asynchronously.
-func (c *CipherContext) EncryptBytes(ctx context.Context, data []byte) ([]byte, error) {
+func (c *CipherContext) EncryptBytes(ctx context.Context, data []byte) (<-chan []byte, <-chan error) {
 	resultChan := make(chan []byte, 1)
 	errChan := make(chan error, 1)
 
 	go func() {
+		defer close(resultChan)
+		defer close(errChan)
+
+		select {
+		case <-ctx.Done():
+			errChan <- ctx.Err()
+			return
+		default:
+		}
+
 		result, err := c.encryptSync(ctx, data)
 		if err != nil {
 			errChan <- err
@@ -60,22 +67,24 @@ func (c *CipherContext) EncryptBytes(ctx context.Context, data []byte) ([]byte, 
 		resultChan <- result
 	}()
 
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case err := <-errChan:
-		return nil, err
-	case result := <-resultChan:
-		return result, nil
-	}
+	return resultChan, errChan
 }
 
-// DecryptBytes decrypts data asynchronously.
-func (c *CipherContext) DecryptBytes(ctx context.Context, data []byte) ([]byte, error) {
+func (c *CipherContext) DecryptBytes(ctx context.Context, data []byte) (<-chan []byte, <-chan error) {
 	resultChan := make(chan []byte, 1)
 	errChan := make(chan error, 1)
 
 	go func() {
+		defer close(resultChan)
+		defer close(errChan)
+
+		select {
+		case <-ctx.Done():
+			errChan <- ctx.Err()
+			return
+		default:
+		}
+
 		result, err := c.decryptSync(ctx, data)
 		if err != nil {
 			errChan <- err
@@ -84,14 +93,7 @@ func (c *CipherContext) DecryptBytes(ctx context.Context, data []byte) ([]byte, 
 		resultChan <- result
 	}()
 
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case err := <-errChan:
-		return nil, err
-	case result := <-resultChan:
-		return result, nil
-	}
+	return resultChan, errChan
 }
 
 func (c *CipherContext) encryptSync(ctx context.Context, data []byte) ([]byte, error) {
@@ -114,7 +116,6 @@ func (c *CipherContext) decryptSync(ctx context.Context, data []byte) ([]byte, e
 
 
 
-// EncryptFile encrypts a file asynchronously.
 func (c *CipherContext) EncryptFile(ctx context.Context, inputPath, outputPath string) error {
 	errChan := make(chan error, 1)
 
@@ -147,7 +148,6 @@ func (c *CipherContext) EncryptFile(ctx context.Context, inputPath, outputPath s
 	}
 }
 
-// DecryptFile decrypts a file asynchronously.
 func (c *CipherContext) DecryptFile(ctx context.Context, inputPath, outputPath string) error {
 	errChan := make(chan error, 1)
 
@@ -180,36 +180,36 @@ func (c *CipherContext) DecryptFile(ctx context.Context, inputPath, outputPath s
 	}
 }
 
-// EncryptStream encrypts data from reader to writer.
 func (c *CipherContext) EncryptStream(ctx context.Context, reader io.Reader, writer io.Writer) error {
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return errors.Annotate(err, "failed to read from stream: %w")
 	}
 
-	encrypted, err := c.EncryptBytes(ctx, data)
-	if err != nil {
+	resultChan, errChan := c.EncryptBytes(ctx, data)
+	select {
+	case encrypted := <-resultChan:
+		_, err = writer.Write(encrypted)
+		return errors.Annotate(err, "failed to write to stream: %w")
+	case err := <-errChan:
 		return err
 	}
-
-	_, err = writer.Write(encrypted)
-	return errors.Annotate(err, "failed to write to stream: %w")
 }
 
-// DecryptStream decrypts data from reader to writer.
 func (c *CipherContext) DecryptStream(ctx context.Context, reader io.Reader, writer io.Writer) error {
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return errors.Annotate(err, "failed to read from stream: %w")
 	}
 
-	decrypted, err := c.DecryptBytes(ctx, data)
-	if err != nil {
+	resultChan, errChan := c.DecryptBytes(ctx, data)
+	select {
+	case decrypted := <-resultChan:
+		_, err = writer.Write(decrypted)
+		return errors.Annotate(err, "failed to write to stream: %w")
+	case err := <-errChan:
 		return err
 	}
-
-	_, err = writer.Write(decrypted)
-	return errors.Annotate(err, "failed to write to stream: %w")
 }
 
 

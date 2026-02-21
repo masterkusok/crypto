@@ -7,7 +7,6 @@ import (
 	"math/rand"
 )
 
-// PrimalityTester defines interface for probabilistic primality testing.
 type PrimalityTester interface {
 	IsProbablyPrime(n int64, minProbability float64) bool
 }
@@ -36,10 +35,10 @@ func (p *primalityTest) IsProbablyPrime(n int64, minProbability float64) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
-// NewFermatTest creates new Fermat primality tester.
 func NewFermatTest() PrimalityTester {
 	return &primalityTest{
 		test: func(n, a int64) bool {
@@ -48,7 +47,6 @@ func NewFermatTest() PrimalityTester {
 	}
 }
 
-// NewSolovayStrassenTest creates new Solovay-Strassen primality tester.
 func NewSolovayStrassenTest() PrimalityTester {
 	return &primalityTest{
 		test: func(n, a int64) bool {
@@ -66,7 +64,6 @@ func NewSolovayStrassenTest() PrimalityTester {
 	}
 }
 
-// NewMillerRabinTest creates new Miller-Rabin primality tester.
 func NewMillerRabinTest() PrimalityTester {
 	return &primalityTest{
 		test: func(n, a int64) bool {
@@ -93,7 +90,6 @@ func NewMillerRabinTest() PrimalityTester {
 	}
 }
 
-// PrimalityTesterBig defines interface for probabilistic primality testing with big.Int.
 type PrimalityTesterBig interface {
 	IsProbablyPrimeBig(n *big.Int, minProbability float64) bool
 }
@@ -127,7 +123,6 @@ func (p *primalityTestBig) IsProbablyPrimeBig(n *big.Int, minProbability float64
 	return true
 }
 
-// NewMillerRabinTestBig creates new Miller-Rabin primality tester for big.Int.
 func NewMillerRabinTestBig() PrimalityTesterBig {
 	return &primalityTestBig{
 		test: func(n, a *big.Int) bool {

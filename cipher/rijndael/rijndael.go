@@ -1,4 +1,3 @@
-// Package rijndael contains implementation of Rijndael encryption algorithm.
 package rijndael
 
 import (
@@ -10,7 +9,6 @@ import (
 	"github.com/masterkusok/crypto/tables"
 )
 
-// Rijndael implements the Rijndael cipher.
 type Rijndael struct {
 	blockSize int
 	keySize   int
@@ -22,8 +20,6 @@ type Rijndael struct {
 	sboxInit  sync.Once
 }
 
-// NewRijndael creates a new Rijndael cipher with specified block size, key size, and GF(2^8) modulus.
-// blockSize and keySize must be 16, 24, or 32 bytes.
 func NewRijndael(blockSize, keySize int, modulus byte) (*Rijndael, error) {
 	if blockSize != 16 && blockSize != 24 && blockSize != 32 {
 		return nil, errors.ErrInvalidBlockSize
@@ -54,7 +50,6 @@ func calculateRounds(blockSize, keySize int) int {
 	return nk + 6
 }
 
-// SetKey implements BlockCipher interface.
 func (r *Rijndael) SetKey(ctx context.Context, key []byte) error {
 	if len(key) != r.keySize {
 		return errors.ErrInvalidKeySize
@@ -67,7 +62,6 @@ func (r *Rijndael) SetKey(ctx context.Context, key []byte) error {
 	return err
 }
 
-// Encrypt implements BlockCipher interface.
 func (r *Rijndael) Encrypt(ctx context.Context, block []byte) ([]byte, error) {
 	if len(block) != r.blockSize {
 		return nil, errors.ErrInvalidBlockSize
@@ -95,7 +89,6 @@ func (r *Rijndael) Encrypt(ctx context.Context, block []byte) ([]byte, error) {
 	return state, nil
 }
 
-// Decrypt implements BlockCipher interface.
 func (r *Rijndael) Decrypt(ctx context.Context, block []byte) ([]byte, error) {
 	if len(block) != r.blockSize {
 		return nil, errors.ErrInvalidBlockSize
@@ -123,28 +116,24 @@ func (r *Rijndael) Decrypt(ctx context.Context, block []byte) ([]byte, error) {
 	return state, nil
 }
 
-// BlockSize implements BlockCipher interface.
 func (r *Rijndael) BlockSize() int {
 	return r.blockSize
 }
 
 func (r *Rijndael) initSBox() {
 	r.sboxInit.Do(func() {
-		// Generate S-box
 		for i := 0; i < 256; i++ {
 			val := byte(i)
 			if val == 0 {
 				val = 0
 			} else {
-				inv, _ := cryptoMath.GF256Inv(val, r.modulus)
-				val = inv
+				val, _ = cryptoMath.GF256Inv(val, r.modulus)
 			}
-			// Affine transformation
+
 			val = r.affineTransform(val)
 			r.sbox[i] = val
 		}
 
-		// Generate inverse S-box
 		for i := 0; i < 256; i++ {
 			r.invSbox[r.sbox[i]] = byte(i)
 		}
@@ -152,8 +141,6 @@ func (r *Rijndael) initSBox() {
 }
 
 func (r *Rijndael) affineTransform(b byte) byte {
-	// Standard AES affine transformation: b' = Ab + c
-	// where A is circulant matrix and c = 0x63
 	result := byte(0)
 	for i := 0; i < 8; i++ {
 		bit := byte(0)

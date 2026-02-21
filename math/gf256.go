@@ -4,13 +4,10 @@ import "errors"
 
 var ErrReduciblePolynomial = errors.New("polynomial is reducible")
 
-// GF256Add performs addition in GF(2^8) (XOR operation).
 func GF256Add(a, b byte) byte {
 	return a ^ b
 }
 
-// GF256Mul performs multiplication in GF(2^8) modulo given polynomial.
-// Returns error if modulus is reducible.
 func GF256Mul(a, b, mod byte) (byte, error) {
 	if !IsIrreducible(mod) {
 		return 0, ErrReduciblePolynomial
@@ -31,8 +28,6 @@ func GF256Mul(a, b, mod byte) (byte, error) {
 	return result, nil
 }
 
-// GF256Inv computes multiplicative inverse in GF(2^8) modulo given polynomial.
-// Returns error if modulus is reducible or if a is zero.
 func GF256Inv(a, mod byte) (byte, error) {
 	if a == 0 {
 		return 0, errors.New("zero has no inverse")
@@ -55,8 +50,6 @@ func GF256Inv(a, mod byte) (byte, error) {
 	return byte(t0), nil
 }
 
-// IsIrreducible checks if polynomial is irreducible over GF(2^8).
-// Input byte represents polynomial with implicit x^8 term.
 func IsIrreducible(poly byte) bool {
 	// poly represents x^8 + lower terms
 	fullPoly := uint16(0x100) | uint16(poly)
@@ -72,7 +65,6 @@ func IsIrreducible(poly byte) bool {
 	return true
 }
 
-// GetAllIrreducible returns all irreducible polynomials of degree 8 over GF(2^8).
 func GetAllIrreducible() []byte {
 	var result []byte
 	// Degree 8 polynomials have bit 8 set, so range is 0x100-0x1FF
@@ -85,7 +77,6 @@ func GetAllIrreducible() []byte {
 	return result
 }
 
-// Factorize returns factorization of polynomial into irreducible factors.
 func Factorize(poly uint16) []uint16 {
 	if poly == 0 || poly == 1 {
 		return nil

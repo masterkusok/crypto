@@ -2,21 +2,15 @@ package cipher
 
 import "github.com/masterkusok/crypto/errors"
 
-// PaddingScheme defines the padding method.
 type PaddingScheme int
 
 const (
-	// Zeros pads with zero bytes.
 	Zeros PaddingScheme = iota
-	// ANSIX923 pads with zeros and the last byte is the padding length.
 	ANSIX923
-	// PKCS7 pads with bytes all equal to the padding length.
 	PKCS7
-	// ISO10126 pads with random bytes and the last byte is the padding length.
 	ISO10126
 )
 
-// Pad adds padding to data according to the scheme.
 func Pad(data []byte, blockSize int, scheme PaddingScheme) ([]byte, error) {
 	if blockSize <= 0 {
 		return nil, errors.ErrInvalidBlockSize
@@ -48,7 +42,6 @@ func Pad(data []byte, blockSize int, scheme PaddingScheme) ([]byte, error) {
 	return padded, nil
 }
 
-// Unpad removes padding from data according to the scheme.
 func Unpad(data []byte, scheme PaddingScheme) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, errors.ErrInvalidDataLength
