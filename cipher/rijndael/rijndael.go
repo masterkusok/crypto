@@ -66,6 +66,7 @@ func (r *Rijndael) Encrypt(ctx context.Context, block []byte) ([]byte, error) {
 	if len(block) != r.blockSize {
 		return nil, errors.ErrInvalidBlockSize
 	}
+
 	if r.roundKeys == nil {
 		return nil, errors.ErrInvalidKeySize
 	}
@@ -93,6 +94,7 @@ func (r *Rijndael) Decrypt(ctx context.Context, block []byte) ([]byte, error) {
 	if len(block) != r.blockSize {
 		return nil, errors.ErrInvalidBlockSize
 	}
+
 	if r.roundKeys == nil {
 		return nil, errors.ErrInvalidKeySize
 	}

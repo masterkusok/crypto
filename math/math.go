@@ -110,12 +110,11 @@ func ExtendedGCDBig(a, b *big.Int) (gcd, x, y *big.Int) {
 
 func ModInverseBig(a, m *big.Int) *big.Int {
 	gcd, x, _ := ExtendedGCDBig(a, m)
-	
+
 	if gcd.Cmp(big.NewInt(1)) != 0 {
 		return nil
 	}
 
-	// Ensure x is positive
 	x.Mod(x, m)
 	if x.Sign() < 0 {
 		x.Add(x, m)

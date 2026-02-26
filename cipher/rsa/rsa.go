@@ -55,31 +55,31 @@ func (r *RSA) GenerateKeyPair() error {
 		return err
 	}
 
-	// Protect against Fermat attack: ensure |p-q| is large
+	n := new(big.Int).Mul(p, q)
+
 	diff := new(big.Int).Sub(p, q)
 	diff.Abs(diff)
-	minDiff := new(big.Int).Lsh(big.NewInt(1), uint(r.KeyGen.bitLength/2-10))
-	if diff.Cmp(minDiff) < 0 {
+	nSqrt := new(big.Int).Sqrt(n)
+	nFourthRoot := new(big.Int).Sqrt(nSqrt)
+	minDiff := new(big.Int).Lsh(nFourthRoot, 1)
+	if diff.Cmp(minDiff) <= 0 {
 		return r.GenerateKeyPair()
 	}
 
-	n := new(big.Int).Mul(p, q)
 	phi := new(big.Int).Mul(
 		new(big.Int).Sub(p, big.NewInt(1)),
 		new(big.Int).Sub(q, big.NewInt(1)),
 	)
 
-	// Choose e = 65537 (common choice)
 	e := big.NewInt(65537)
 
-	// Compute d = e^(-1) mod φ using Extended Euclidean algorithm
 	d := cryptoMath.ModInverseBig(e, phi)
 	if d == nil {
 		return errors.New("failed to compute private exponent")
 	}
 
-	nSqrt := new(big.Int).Sqrt(n)
-	nFourthRoot := new(big.Int).Sqrt(nSqrt)
+	nSqrt = new(big.Int).Sqrt(n)
+	nFourthRoot = new(big.Int).Sqrt(nSqrt)
 	threshold := new(big.Int).Div(nFourthRoot, big.NewInt(3))
 
 	if d.Cmp(threshold) <= 0 {

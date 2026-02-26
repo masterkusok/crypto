@@ -101,6 +101,7 @@ func getSixBits(data []byte, index int) byte {
 	if bitOffset <= 2 {
 		return (data[byteIdx] >> (2 - bitOffset)) & 0x3F
 	}
+
 	return ((data[byteIdx] << (bitOffset - 2)) | (data[byteIdx+1] >> (10 - bitOffset))) & 0x3F
 }
 
@@ -119,7 +120,6 @@ func (d *DES) Encrypt(ctx context.Context, block []byte) ([]byte, error) {
 		return nil, errors.ErrInvalidBlockSize
 	}
 
-	// Применяем начальную перестановку IP
 	permuted, err := bits.Permute(block, tables.InitialPermutation, bits.MSBFirst, bits.StartFromOne)
 	if err != nil {
 		return nil, errors.Annotate(err, "initial permutation failed: %w")

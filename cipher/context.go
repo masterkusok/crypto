@@ -2,6 +2,7 @@ package cipher
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 
@@ -114,26 +115,51 @@ func (c *CipherContext) decryptSync(ctx context.Context, data []byte) ([]byte, e
 	return Unpad(decrypted, c.padding)
 }
 
-
-
 func (c *CipherContext) EncryptFile(ctx context.Context, inputPath, outputPath string) error {
 	errChan := make(chan error, 1)
 
 	go func() {
-		data, err := os.ReadFile(inputPath)
+		inFile, err := os.Open(inputPath)
 		if err != nil {
-			errChan <- errors.Annotate(err, "failed to read input file: %w")
+			errChan <- fmt.Errorf("opening file: %w", err)
 			return
 		}
+		defer inFile.Close()
 
-		encrypted, err := c.encryptSync(ctx, data)
+		outFile, err := os.Create(outputPath)
+		if err != nil {
+			errChan <- fmt.Errorf("creating output file: %w", err)
+			return
+		}
+		defer outFile.Close()
+
+		const chunkSize = 1024 * 1024
+		buf := make([]byte, chunkSize)
+		var buffer []byte
+		for {
+			n, err := inFile.Read(buf)
+			if n > 0 {
+				buffer = append(buffer, buf[:n]...)
+			}
+
+			if err == io.EOF {
+				break
+			}
+
+			if err != nil {
+				errChan <- fmt.Errorf("reading file: %w", err)
+				return
+			}
+		}
+
+		encrypted, err := c.encryptSync(ctx, buffer)
 		if err != nil {
 			errChan <- err
 			return
 		}
 
-		if err := os.WriteFile(outputPath, encrypted, 0644); err != nil {
-			errChan <- errors.Annotate(err, "failed to write output file: %w")
+		if _, err := outFile.Write(encrypted); err != nil {
+			errChan <- fmt.Errorf("writing output file: %w", err)
 			return
 		}
 
@@ -152,20 +178,47 @@ func (c *CipherContext) DecryptFile(ctx context.Context, inputPath, outputPath s
 	errChan := make(chan error, 1)
 
 	go func() {
-		data, err := os.ReadFile(inputPath)
+		inFile, err := os.Open(inputPath)
 		if err != nil {
-			errChan <- errors.Annotate(err, "failed to read input file: %w")
+			errChan <- fmt.Errorf("opening file: %w", err)
 			return
 		}
+		defer inFile.Close()
 
-		decrypted, err := c.decryptSync(ctx, data)
+		outFile, err := os.Create(outputPath)
+		if err != nil {
+			errChan <- fmt.Errorf("creating output file: %w", err)
+			return
+		}
+		defer outFile.Close()
+
+		const chunkSize = 1024 * 1024
+		buf := make([]byte, chunkSize)
+		var buffer []byte
+		for {
+			n, err := inFile.Read(buf)
+			if n > 0 {
+				buffer = append(buffer, buf[:n]...)
+			}
+
+			if err == io.EOF {
+				break
+			}
+
+			if err != nil {
+				errChan <- fmt.Errorf("reading file: %w", err)
+				return
+			}
+		}
+
+		decrypted, err := c.decryptSync(ctx, buffer)
 		if err != nil {
 			errChan <- err
 			return
 		}
 
-		if err := os.WriteFile(outputPath, decrypted, 0644); err != nil {
-			errChan <- errors.Annotate(err, "failed to write output file: %w")
+		if _, err := outFile.Write(decrypted); err != nil {
+			errChan <- fmt.Errorf("writing output file: %w", err)
 			return
 		}
 
@@ -211,5 +264,3 @@ func (c *CipherContext) DecryptStream(ctx context.Context, reader io.Reader, wri
 		return err
 	}
 }
-
-
