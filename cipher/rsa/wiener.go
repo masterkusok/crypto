@@ -76,36 +76,49 @@ func WienerAttack(pub *PublicKey) *WienerAttackResult {
 }
 
 func continuedFraction(e, n *big.Int) []Convergent {
-	var convergents []Convergent
-
-	n0 := big.NewInt(0)
-	n1 := big.NewInt(1)
-	d0 := big.NewInt(1)
-	d1 := big.NewInt(0)
-
+	var a []*big.Int
 	x := new(big.Int).Set(e)
 	y := new(big.Int).Set(n)
 
 	for i := 0; i < 10000 && y.Cmp(big.NewInt(0)) > 0; i++ {
 		q := new(big.Int).Div(x, y)
-
-		n2 := new(big.Int).Mul(q, n1)
-		n2.Add(n2, n0)
-
-		d2 := new(big.Int).Mul(q, d1)
-		d2.Add(d2, d0)
-
-		convergents = append(convergents, Convergent{
-			Numerator:   new(big.Int).Set(n2),
-			Denominator: new(big.Int).Set(d2),
-		})
-
-		n0, n1 = n1, n2
-		d0, d1 = d1, d2
-
+		a = append(a, new(big.Int).Set(q))
 		tmp := new(big.Int).Mod(x, y)
 		x = y
 		y = tmp
+	}
+
+	var convergents []Convergent
+	if len(a) == 0 {
+		return convergents
+	}
+
+	pPrev2 := big.NewInt(1)
+	pPrev1 := new(big.Int).Set(a[0])
+	qPrev2 := big.NewInt(0)
+	qPrev1 := big.NewInt(1)
+
+	convergents = append(convergents, Convergent{
+		Numerator:   new(big.Int).Set(pPrev1),
+		Denominator: new(big.Int).Set(qPrev1),
+	})
+
+	for i := 1; i < len(a); i++ {
+		p := new(big.Int).Mul(a[i], pPrev1)
+		p.Add(p, pPrev2)
+
+		q := new(big.Int).Mul(a[i], qPrev1)
+		q.Add(q, qPrev2)
+
+		convergents = append(convergents, Convergent{
+			Numerator:   new(big.Int).Set(p),
+			Denominator: new(big.Int).Set(q),
+		})
+
+		pPrev2 = pPrev1
+		pPrev1 = p
+		qPrev2 = qPrev1
+		qPrev1 = q
 	}
 
 	return convergents

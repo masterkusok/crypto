@@ -88,7 +88,6 @@ func TestRijndael256(t *testing.T) {
 }
 
 func TestRijndaelDifferentModulus(t *testing.T) {
-	// Test with different irreducible polynomial
 	irr := []byte{0x1B, 0x1D}
 
 	for _, mod := range irr {
@@ -132,17 +131,14 @@ func TestRijndaelBlockSize(t *testing.T) {
 }
 
 func TestShiftRowsOffsets(t *testing.T) {
-	// Test 128-bit block (Nb=4)
 	r128, _ := NewRijndael(16, 16, 0x1B)
 	shifts128 := r128.getShiftOffsets()
 	assert.Equal(t, [4]int{0, 1, 2, 3}, shifts128, "128-bit block should use shifts [0,1,2,3]")
 
-	// Test 192-bit block (Nb=6)
 	r192, _ := NewRijndael(24, 24, 0x1B)
 	shifts192 := r192.getShiftOffsets()
 	assert.Equal(t, [4]int{0, 1, 2, 3}, shifts192, "192-bit block should use shifts [0,1,2,3]")
 
-	// Test 256-bit block (Nb=8)
 	r256, _ := NewRijndael(32, 32, 0x1B)
 	shifts256 := r256.getShiftOffsets()
 	assert.Equal(t, [4]int{0, 1, 3, 4}, shifts256, "256-bit block should use shifts [0,1,3,4]")
