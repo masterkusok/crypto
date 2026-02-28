@@ -88,7 +88,24 @@ func TestRSANoKeyError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRSAFileEncryption(t *testing.T) {
+func TestRSAEncryptFile(t *testing.T) {
+	rsa := NewRSA(cryptoMath.NewMillerRabinTest(), 0.99, 512)
+	require.NoError(t, rsa.GenerateKeyPair())
+
+	inputFile := t.TempDir() + "/input.txt"
+	encryptedFile := t.TempDir() + "/encrypted.bin"
+
+	originalData := []byte("RSA file encryption test!")
+	require.NoError(t, os.WriteFile(inputFile, originalData, 0o644))
+
+	require.NoError(t, rsa.EncryptFile(inputFile, encryptedFile))
+
+	encryptedData, err := os.ReadFile(encryptedFile)
+	require.NoError(t, err)
+	assert.NotEqual(t, originalData, encryptedData)
+}
+
+func TestRSADecryptFile(t *testing.T) {
 	rsa := NewRSA(cryptoMath.NewMillerRabinTest(), 0.99, 512)
 	require.NoError(t, rsa.GenerateKeyPair())
 
@@ -97,21 +114,10 @@ func TestRSAFileEncryption(t *testing.T) {
 	decryptedFile := t.TempDir() + "/decrypted.txt"
 
 	originalData := []byte("RSA file encryption test!")
-	require.NoError(t, os.WriteFile(inputFile, originalData, 0644))
+	require.NoError(t, os.WriteFile(inputFile, originalData, 0o644))
 
-	data, err := os.ReadFile(inputFile)
-	require.NoError(t, err)
-
-	encrypted, err := rsa.Encrypt(data)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(encryptedFile, encrypted, 0644))
-
-	encryptedData, err := os.ReadFile(encryptedFile)
-	require.NoError(t, err)
-
-	decrypted, err := rsa.Decrypt(encryptedData)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(decryptedFile, decrypted, 0644))
+	require.NoError(t, rsa.EncryptFile(inputFile, encryptedFile))
+	require.NoError(t, rsa.DecryptFile(encryptedFile, decryptedFile))
 
 	decryptedData, err := os.ReadFile(decryptedFile)
 	require.NoError(t, err)

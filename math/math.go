@@ -2,114 +2,74 @@ package math
 
 import "math/big"
 
-func Legendre(a, p int64) int {
+func Legendre(a, p *big.Int) int {
 	return Jacobi(a, p)
 }
 
-func Jacobi(a, n int64) int {
-	if n <= 0 || n%2 == 0 {
+func Jacobi(a, n *big.Int) int {
+	if n.Cmp(big.NewInt(1)) == 0 {
+		return 1
+	}
+
+	if a.Sign() == 0 {
 		return 0
 	}
 
-	a = a % n
-	result := 1
-
-	for a != 0 {
-		for a%2 == 0 {
-			a /= 2
-			if n%8 == 3 || n%8 == 5 {
-				result = -result
-			}
-		}
-		a, n = n, a
-		if a%4 == 3 && n%4 == 3 {
-			result = -result
-		}
-		a = a % n
+	if a.Sign() < 0 {
+		return jacobi2(n) * Jacobi(new(big.Int).Neg(a), n)
 	}
 
-	if n == 1 {
-		return result
+	if new(big.Int).Mod(a, big.NewInt(2)).Sign() == 0 {
+		return Jacobi(new(big.Int).Div(a, big.NewInt(2)), n) * jacobi2(n)
 	}
 
-	return 0
+	if a.Cmp(n) >= 0 {
+		return Jacobi(new(big.Int).Mod(a, n), n)
+	}
+
+	aMinus1 := new(big.Int).Sub(a, big.NewInt(1))
+	nMinus1 := new(big.Int).Sub(n, big.NewInt(1))
+	if new(big.Int).Div(new(big.Int).Mul(aMinus1, nMinus1), big.NewInt(4)).Bit(0) == 1 {
+		return -Jacobi(n, a)
+	}
+
+	return Jacobi(n, a)
 }
 
-func GCD(a, b int64) int64 {
-	if a < 0 {
-		a = -a
-	}
-	if b < 0 {
-		b = -b
+func jacobi2(n *big.Int) int {
+	mod8 := new(big.Int).Mod(n, big.NewInt(8)).Int64()
+	if mod8 == 1 || mod8 == 7 {
+		return 1
 	}
 
-	for b != 0 {
-		a, b = b, a%b
+	return -1
+}
+
+func GCD(a, b *big.Int) *big.Int {
+	a = new(big.Int).Abs(a)
+	b = new(big.Int).Abs(b)
+
+	for b.Sign() != 0 {
+		a, b = b, new(big.Int).Mod(a, b)
 	}
+
 	return a
 }
 
-func ExtendedGCD(a, b int64) (gcd, x, y int64) {
-	if b == 0 {
-		return a, 1, 0
-	}
-
-	x0, x1 := int64(1), int64(0)
-	y0, y1 := int64(0), int64(1)
-
-	for b != 0 {
-		q := a / b
-		a, b = b, a%b
-		x0, x1 = x1, x0-q*x1
-		y0, y1 = y1, y0-q*y1
-	}
-
-	return a, x0, y0
-}
-
-func ModPow(base, exp, m int64) int64 {
-	if m == 1 {
-		return 0
-	}
-
-	result := int64(1)
-	base = base % m
-
-	for exp > 0 {
-		if exp%2 == 1 {
-			result = (result * base) % m
-		}
-		exp = exp >> 1
-		base = (base * base) % m
-	}
-
-	return result
-}
-
-func ExtendedGCDBig(a, b *big.Int) (gcd, x, y *big.Int) {
+func ExtendedGCD(a, b *big.Int) (gcd, x, y *big.Int) {
 	if b.Cmp(big.NewInt(0)) == 0 {
 		return new(big.Int).Set(a), big.NewInt(1), big.NewInt(0)
 	}
 
-	x0, x1 := big.NewInt(1), big.NewInt(0)
-	y0, y1 := big.NewInt(0), big.NewInt(1)
+	gcd, x1, y1 := ExtendedGCD(b, new(big.Int).Mod(a, b))
+	x = y1
+	y = new(big.Int).Sub(x1, new(big.Int).Mul(new(big.Int).Div(a, b), y1))
 
-	aCopy := new(big.Int).Set(a)
-	bCopy := new(big.Int).Set(b)
-
-	for bCopy.Cmp(big.NewInt(0)) != 0 {
-		q := new(big.Int).Div(aCopy, bCopy)
-		aCopy, bCopy = bCopy, new(big.Int).Mod(aCopy, bCopy)
-
-		x0, x1 = x1, new(big.Int).Sub(x0, new(big.Int).Mul(q, x1))
-		y0, y1 = y1, new(big.Int).Sub(y0, new(big.Int).Mul(q, y1))
-	}
-
-	return aCopy, x0, y0
+	return gcd, x, y
 }
 
-func ModInverseBig(a, m *big.Int) *big.Int {
-	gcd, x, _ := ExtendedGCDBig(a, m)
+func ModInverse(a, m *big.Int) *big.Int {
+	gcd, x, _ := ExtendedGCD(a, m)
 
 	if gcd.Cmp(big.NewInt(1)) != 0 {
 		return nil
@@ -123,7 +83,7 @@ func ModInverseBig(a, m *big.Int) *big.Int {
 	return x
 }
 
-func ModPowBig(base, exp, m *big.Int) *big.Int {
+func ModPow(base, exp, m *big.Int) *big.Int {
 	if m.Cmp(big.NewInt(1)) == 0 {
 		return big.NewInt(0)
 	}

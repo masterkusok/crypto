@@ -45,7 +45,6 @@ func TestWienerAttackVulnerable(t *testing.T) {
 }
 
 func TestWienerAttackNotVulnerable(t *testing.T) {
-	// Create RSA with large d (not vulnerable)
 	rsa := NewRSA(cryptoMath.NewMillerRabinTest(), 0.99, 512)
 	require.NoError(t, rsa.GenerateKeyPair())
 
@@ -56,7 +55,6 @@ func TestWienerAttackNotVulnerable(t *testing.T) {
 }
 
 func TestIsVulnerableToWiener(t *testing.T) {
-	// Vulnerable key
 	p := big.NewInt(10007)
 	q := big.NewInt(10009)
 	n := new(big.Int).Mul(p, q)

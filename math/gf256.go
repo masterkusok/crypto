@@ -36,7 +36,6 @@ func GF256Inv(a, mod byte) (byte, error) {
 		return 0, ErrReduciblePolynomial
 	}
 
-	// Extended Euclidean algorithm for polynomials in GF(2^8)
 	fullMod := uint16(0x100) | uint16(mod)
 	r0, r1 := fullMod, uint16(a)
 	t0, t1 := uint16(0), uint16(1)
@@ -51,10 +50,8 @@ func GF256Inv(a, mod byte) (byte, error) {
 }
 
 func IsIrreducible(poly byte) bool {
-	// poly represents x^8 + lower terms
 	fullPoly := uint16(0x100) | uint16(poly)
-	
-	// Check divisibility by all polynomials of degree 1 to 4
+
 	for d := 1; d <= 4; d++ {
 		for p := uint16(1 << d); p < uint16(1<<(d+1)); p++ {
 			if polyDegree(p) == d && polyMod(fullPoly, p) == 0 {
@@ -67,8 +64,6 @@ func IsIrreducible(poly byte) bool {
 
 func GetAllIrreducible() []byte {
 	var result []byte
-	// Degree 8 polynomials have bit 8 set, so range is 0x100-0x1FF
-	// But byte can only hold 0x00-0xFF, so we represent x^8+... as just the lower bits
 	for p := 0; p < 256; p++ {
 		if IsIrreducible(byte(p)) {
 			result = append(result, byte(p))
@@ -84,13 +79,11 @@ func Factorize(poly uint16) []uint16 {
 
 	var factors []uint16
 
-	// Factor out x (polynomial 0x02)
 	for poly&1 == 0 {
 		factors = append(factors, 0x02)
 		poly >>= 1
 	}
 
-	// Try all possible factors of degree 2 and higher
 	for d := 2; d <= polyDegree(poly); d++ {
 		for p := uint16(1 << d); p < uint16(1<<(d+1)); p++ {
 			if polyDegree(p) != d {
@@ -110,8 +103,6 @@ func Factorize(poly uint16) []uint16 {
 
 	return factors
 }
-
-// Helper functions for polynomial arithmetic
 
 func polyDegree(p uint16) int {
 	if p == 0 {

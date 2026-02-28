@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"math/big"
+	"os"
 
 	cryptoMath "github.com/masterkusok/crypto/math"
 )
@@ -12,7 +13,6 @@ type KeyGenerator struct {
 	minProbability float64
 	bitLength      int
 	tester         cryptoMath.PrimalityTester
-	testerBig      cryptoMath.PrimalityTesterBig
 }
 
 type PublicKey struct {
@@ -33,13 +33,16 @@ type RSA struct {
 	publicKey  *PublicKey
 }
 
-func NewRSA(tester cryptoMath.PrimalityTester, minProbability float64, bitLength int) *RSA {
+func NewRSA(
+	tester cryptoMath.PrimalityTester,
+	minProbability float64,
+	bitLength int,
+) *RSA {
 	return &RSA{
 		KeyGen: &KeyGenerator{
 			minProbability: minProbability,
 			bitLength:      bitLength,
 			tester:         tester,
-			testerBig:      cryptoMath.NewMillerRabinTestBig(),
 		},
 	}
 }
@@ -73,7 +76,7 @@ func (r *RSA) GenerateKeyPair() error {
 
 	e := big.NewInt(65537)
 
-	d := cryptoMath.ModInverseBig(e, phi)
+	d := cryptoMath.ModInverse(e, phi)
 	if d == nil {
 		return errors.New("failed to compute private exponent")
 	}
@@ -107,14 +110,8 @@ func (kg *KeyGenerator) generatePrime() (*big.Int, error) {
 		candidate.SetBit(candidate, 0, 1)
 		candidate.SetBit(candidate, kg.bitLength-1, 1)
 
-		if kg.bitLength <= 60 && candidate.IsInt64() {
-			if kg.tester.IsProbablyPrime(candidate.Int64(), kg.minProbability) {
-				return candidate, nil
-			}
-		} else {
-			if kg.testerBig.IsProbablyPrimeBig(candidate, kg.minProbability) {
-				return candidate, nil
-			}
+		if kg.tester.IsProbablyPrime(candidate, kg.minProbability) {
+			return candidate, nil
 		}
 	}
 }
@@ -129,7 +126,7 @@ func (r *RSA) Encrypt(message []byte) ([]byte, error) {
 		return nil, errors.New("message too large")
 	}
 
-	c := cryptoMath.ModPowBig(m, r.publicKey.E, r.publicKey.N)
+	c := cryptoMath.ModPow(m, r.publicKey.E, r.publicKey.N)
 	return c.Bytes(), nil
 }
 
@@ -139,7 +136,7 @@ func (r *RSA) Decrypt(ciphertext []byte) ([]byte, error) {
 	}
 
 	c := new(big.Int).SetBytes(ciphertext)
-	m := cryptoMath.ModPowBig(c, r.privateKey.D, r.privateKey.N)
+	m := cryptoMath.ModPow(c, r.privateKey.D, r.privateKey.N)
 	return m.Bytes(), nil
 }
 
@@ -149,4 +146,32 @@ func (r *RSA) GetPublicKey() *PublicKey {
 
 func (r *RSA) GetPrivateKey() *PrivateKey {
 	return r.privateKey
+}
+
+func (r *RSA) EncryptFile(inputPath, outputPath string) error {
+	data, err := os.ReadFile(inputPath)
+	if err != nil {
+		return err
+	}
+
+	encrypted, err := r.Encrypt(data)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(outputPath, encrypted, 0o644)
+}
+
+func (r *RSA) DecryptFile(inputPath, outputPath string) error {
+	data, err := os.ReadFile(inputPath)
+	if err != nil {
+		return err
+	}
+
+	decrypted, err := r.Decrypt(data)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(outputPath, decrypted, 0o644)
 }

@@ -137,7 +137,14 @@ func (r *Rijndael) initSBox() {
 		}
 
 		for i := 0; i < 256; i++ {
-			r.invSbox[r.sbox[i]] = byte(i)
+			val := byte(i)
+			val = r.invAffineTransform(val)
+			if val == 0 {
+				val = 0
+			} else {
+				val, _ = cryptoMath.GF256Inv(val, r.modulus)
+			}
+			r.invSbox[i] = val
 		}
 	})
 }
@@ -154,6 +161,19 @@ func (r *Rijndael) affineTransform(b byte) byte {
 		result |= bit << i
 	}
 	return result ^ 0x63
+}
+
+func (r *Rijndael) invAffineTransform(b byte) byte {
+	b ^= 0x63
+	result := byte(0)
+	for i := 0; i < 8; i++ {
+		bit := byte(0)
+		bit ^= (b >> ((i + 2) % 8)) & 1
+		bit ^= (b >> ((i + 5) % 8)) & 1
+		bit ^= (b >> ((i + 7) % 8)) & 1
+		result |= bit << i
+	}
+	return result
 }
 
 func (r *Rijndael) subBytes(state []byte) {
@@ -173,9 +193,10 @@ func (r *Rijndael) shiftRows(state []byte) {
 	temp := make([]byte, r.blockSize)
 	copy(temp, state)
 
+	shifts := r.getShiftOffsets()
 	for row := 0; row < 4; row++ {
 		for col := 0; col < nb; col++ {
-			state[row+4*col] = temp[row+4*((col+row)%nb)]
+			state[row+4*col] = temp[row+4*((col+shifts[row])%nb)]
 		}
 	}
 }
@@ -185,11 +206,20 @@ func (r *Rijndael) invShiftRows(state []byte) {
 	temp := make([]byte, r.blockSize)
 	copy(temp, state)
 
+	shifts := r.getShiftOffsets()
 	for row := 0; row < 4; row++ {
 		for col := 0; col < nb; col++ {
-			state[row+4*col] = temp[row+4*((col-row+nb)%nb)]
+			state[row+4*col] = temp[row+4*((col-shifts[row]+nb)%nb)]
 		}
 	}
+}
+
+func (r *Rijndael) getShiftOffsets() [4]int {
+	nb := r.blockSize / 4
+	if nb == 8 {
+		return [4]int{0, 1, 3, 4}
+	}
+	return [4]int{0, 1, 2, 3}
 }
 
 func (r *Rijndael) mixColumns(state []byte) {

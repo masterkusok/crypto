@@ -10,7 +10,7 @@ import (
 )
 
 func TestGenerateParameters(t *testing.T) {
-	params, err := GenerateParameters(256, cryptoMath.NewMillerRabinTestBig(), 0.99)
+	params, err := GenerateParameters(256, cryptoMath.NewMillerRabinTest(), 0.99)
 	require.NoError(t, err)
 	require.NotNil(t, params)
 	assert.NotNil(t, params.P)
@@ -19,7 +19,7 @@ func TestGenerateParameters(t *testing.T) {
 }
 
 func TestGenerateKey(t *testing.T) {
-	params, err := GenerateParameters(256, cryptoMath.NewMillerRabinTestBig(), 0.99)
+	params, err := GenerateParameters(256, cryptoMath.NewMillerRabinTest(), 0.99)
 	require.NoError(t, err)
 
 	priv, pub, err := GenerateKey(params)
@@ -36,7 +36,7 @@ func TestGenerateKey(t *testing.T) {
 }
 
 func TestKeyExchange(t *testing.T) {
-	params, err := GenerateParameters(256, cryptoMath.NewMillerRabinTestBig(), 0.99)
+	params, err := GenerateParameters(256, cryptoMath.NewMillerRabinTest(), 0.99)
 	require.NoError(t, err)
 
 	// Alice generates key pair
@@ -60,7 +60,7 @@ func TestKeyExchange(t *testing.T) {
 }
 
 func TestInvalidPublicKey(t *testing.T) {
-	params, err := GenerateParameters(256, cryptoMath.NewMillerRabinTestBig(), 0.99)
+	params, err := GenerateParameters(256, cryptoMath.NewMillerRabinTest(), 0.99)
 	require.NoError(t, err)
 
 	priv, _, err := GenerateKey(params)
@@ -78,10 +78,10 @@ func TestInvalidPublicKey(t *testing.T) {
 }
 
 func TestParameterMismatch(t *testing.T) {
-	params1, err := GenerateParameters(256, cryptoMath.NewMillerRabinTestBig(), 0.99)
+	params1, err := GenerateParameters(256, cryptoMath.NewMillerRabinTest(), 0.99)
 	require.NoError(t, err)
 
-	params2, err := GenerateParameters(256, cryptoMath.NewMillerRabinTestBig(), 0.99)
+	params2, err := GenerateParameters(256, cryptoMath.NewMillerRabinTest(), 0.99)
 	require.NoError(t, err)
 
 	priv1, _, err := GenerateKey(params1)

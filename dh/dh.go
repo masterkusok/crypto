@@ -23,7 +23,7 @@ type PublicKey struct {
 	Y      *big.Int
 }
 
-func GenerateParameters(bits int, tester cryptoMath.PrimalityTesterBig, minProb float64) (*Parameters, error) {
+func GenerateParameters(bits int, tester cryptoMath.PrimalityTester, minProb float64) (*Parameters, error) {
 	p, err := generateSafePrime(bits, tester, minProb)
 	if err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func ComputeSharedSecret(priv *PrivateKey, peerPub *PublicKey) (*big.Int, error)
 	return secret, nil
 }
 
-func generateSafePrime(bits int, tester cryptoMath.PrimalityTesterBig, minProb float64) (*big.Int, error) {
+func generateSafePrime(bits int, tester cryptoMath.PrimalityTester, minProb float64) (*big.Int, error) {
 	for {
 		p, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), uint(bits)))
 		if err != nil {
@@ -84,7 +84,7 @@ func generateSafePrime(bits int, tester cryptoMath.PrimalityTesterBig, minProb f
 		p.SetBit(p, bits-1, 1)
 		p.Or(p, big.NewInt(1))
 
-		if tester.IsProbablyPrimeBig(p, minProb) {
+		if tester.IsProbablyPrime(p, minProb) {
 			return p, nil
 		}
 	}
