@@ -1,6 +1,7 @@
 package rsa
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"math/big"
@@ -174,4 +175,56 @@ func (r *RSA) DecryptFile(inputPath, outputPath string) error {
 	}
 
 	return os.WriteFile(outputPath, decrypted, 0o644)
+}
+
+func (r *RSA) EncryptAsync(ctx context.Context, message []byte) (<-chan []byte, <-chan error) {
+	resultChan := make(chan []byte, 1)
+	errChan := make(chan error, 1)
+
+	go func() {
+		defer close(resultChan)
+		defer close(errChan)
+
+		select {
+		case <-ctx.Done():
+			errChan <- ctx.Err()
+			return
+		default:
+		}
+
+		result, err := r.Encrypt(message)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		resultChan <- result
+	}()
+
+	return resultChan, errChan
+}
+
+func (r *RSA) DecryptAsync(ctx context.Context, ciphertext []byte) (<-chan []byte, <-chan error) {
+	resultChan := make(chan []byte, 1)
+	errChan := make(chan error, 1)
+
+	go func() {
+		defer close(resultChan)
+		defer close(errChan)
+
+		select {
+		case <-ctx.Done():
+			errChan <- ctx.Err()
+			return
+		default:
+		}
+
+		result, err := r.Decrypt(ciphertext)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		resultChan <- result
+	}()
+
+	return resultChan, errChan
 }

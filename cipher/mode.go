@@ -101,16 +101,37 @@ func (m *CBCMode) Encrypt(ctx context.Context, cipher BlockCipher, data, iv []by
 func (m *CBCMode) Decrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error) {
 	blockSize := cipher.BlockSize()
 	result := make([]byte, len(data))
-	prev := iv
+	numBlocks := len(data) / blockSize
 
-	for i := 0; i < len(data); i += blockSize {
-		encrypted := data[i : i+blockSize]
-		decrypted, err := cipher.Decrypt(ctx, encrypted)
-		if err != nil {
-			return nil, err
-		}
-		copy(result[i:i+blockSize], xorBlocks(decrypted, prev))
-		prev = encrypted
+	var wg sync.WaitGroup
+	errChan := make(chan error, numBlocks)
+
+	for i := 0; i < numBlocks; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			start := idx * blockSize
+			end := start + blockSize
+			decrypted, err := cipher.Decrypt(ctx, data[start:end])
+			if err != nil {
+				errChan <- err
+				return
+			}
+			var prev []byte
+			if idx == 0 {
+				prev = iv
+			} else {
+				prev = data[start-blockSize : start]
+			}
+			copy(result[start:end], xorBlocks(decrypted, prev))
+		}(i)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	if err := <-errChan; err != nil {
+		return nil, err
 	}
 
 	return result, nil
@@ -179,16 +200,37 @@ func (m *CFBMode) Encrypt(ctx context.Context, cipher BlockCipher, data, iv []by
 func (m *CFBMode) Decrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error) {
 	blockSize := cipher.BlockSize()
 	result := make([]byte, len(data))
-	prev := iv
+	numBlocks := len(data) / blockSize
 
-	for i := 0; i < len(data); i += blockSize {
-		encrypted, err := cipher.Encrypt(ctx, prev)
-		if err != nil {
-			return nil, err
-		}
-		cipherBlock := data[i : i+blockSize]
-		copy(result[i:i+blockSize], xorBlocks(cipherBlock, encrypted))
-		prev = cipherBlock
+	var wg sync.WaitGroup
+	errChan := make(chan error, numBlocks)
+
+	for i := 0; i < numBlocks; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			start := idx * blockSize
+			end := start + blockSize
+			var prev []byte
+			if idx == 0 {
+				prev = iv
+			} else {
+				prev = data[start-blockSize : start]
+			}
+			encrypted, err := cipher.Encrypt(ctx, prev)
+			if err != nil {
+				errChan <- err
+				return
+			}
+			copy(result[start:end], xorBlocks(data[start:end], encrypted))
+		}(i)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	if err := <-errChan; err != nil {
+		return nil, err
 	}
 
 	return result, nil
@@ -222,16 +264,36 @@ type CTRMode struct{}
 func (m *CTRMode) Encrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error) {
 	blockSize := cipher.BlockSize()
 	result := make([]byte, len(data))
-	counter := make([]byte, blockSize)
-	copy(counter, iv)
+	numBlocks := len(data) / blockSize
 
-	for i := 0; i < len(data); i += blockSize {
-		encrypted, err := cipher.Encrypt(ctx, counter)
-		if err != nil {
-			return nil, err
-		}
-		copy(result[i:i+blockSize], xorBlocks(data[i:i+blockSize], encrypted))
-		incrementCounter(counter)
+	var wg sync.WaitGroup
+	errChan := make(chan error, numBlocks)
+
+	for i := 0; i < numBlocks; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			start := idx * blockSize
+			end := start + blockSize
+			counter := make([]byte, blockSize)
+			copy(counter, iv)
+			for j := 0; j < idx; j++ {
+				incrementCounter(counter)
+			}
+			encrypted, err := cipher.Encrypt(ctx, counter)
+			if err != nil {
+				errChan <- err
+				return
+			}
+			copy(result[start:end], xorBlocks(data[start:end], encrypted))
+		}(i)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	if err := <-errChan; err != nil {
+		return nil, err
 	}
 
 	return result, nil
@@ -245,17 +307,51 @@ type RandomDeltaMode struct{}
 
 func (m *RandomDeltaMode) Encrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error) {
 	blockSize := cipher.BlockSize()
-	result := make([]byte, len(data))
-	delta := iv
+	numBlocks := len(data) / blockSize
+	deltas := make([][]byte, numBlocks)
+	deltas[0] = iv
 
-	for i := 0; i < len(data); i += blockSize {
-		block := xorBlocks(data[i:i+blockSize], delta)
+	for i := 1; i < numBlocks; i++ {
+		deltas[i] = make([]byte, blockSize)
+	}
+
+	result := make([]byte, len(data))
+	for i := 0; i < numBlocks; i++ {
+		block := xorBlocks(data[i*blockSize:(i+1)*blockSize], deltas[i])
 		encrypted, err := cipher.Encrypt(ctx, block)
 		if err != nil {
 			return nil, err
 		}
-		copy(result[i:i+blockSize], encrypted)
-		delta = encrypted
+		copy(result[i*blockSize:(i+1)*blockSize], encrypted)
+		if i+1 < numBlocks {
+			deltas[i+1] = encrypted
+		}
+	}
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, numBlocks)
+
+	for i := 0; i < numBlocks; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			start := idx * blockSize
+			end := start + blockSize
+			block := xorBlocks(data[start:end], deltas[idx])
+			encrypted, err := cipher.Encrypt(ctx, block)
+			if err != nil {
+				errChan <- err
+				return
+			}
+			copy(result[start:end], encrypted)
+		}(i)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	if err := <-errChan; err != nil {
+		return nil, err
 	}
 
 	return result, nil
@@ -264,16 +360,37 @@ func (m *RandomDeltaMode) Encrypt(ctx context.Context, cipher BlockCipher, data,
 func (m *RandomDeltaMode) Decrypt(ctx context.Context, cipher BlockCipher, data, iv []byte) ([]byte, error) {
 	blockSize := cipher.BlockSize()
 	result := make([]byte, len(data))
-	delta := iv
+	numBlocks := len(data) / blockSize
 
-	for i := 0; i < len(data); i += blockSize {
-		encrypted := data[i : i+blockSize]
-		decrypted, err := cipher.Decrypt(ctx, encrypted)
-		if err != nil {
-			return nil, err
-		}
-		copy(result[i:i+blockSize], xorBlocks(decrypted, delta))
-		delta = encrypted
+	var wg sync.WaitGroup
+	errChan := make(chan error, numBlocks)
+
+	for i := 0; i < numBlocks; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			start := idx * blockSize
+			end := start + blockSize
+			decrypted, err := cipher.Decrypt(ctx, data[start:end])
+			if err != nil {
+				errChan <- err
+				return
+			}
+			var delta []byte
+			if idx == 0 {
+				delta = iv
+			} else {
+				delta = data[start-blockSize : start]
+			}
+			copy(result[start:end], xorBlocks(decrypted, delta))
+		}(i)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	if err := <-errChan; err != nil {
+		return nil, err
 	}
 
 	return result, nil

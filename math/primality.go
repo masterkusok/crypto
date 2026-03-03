@@ -36,6 +36,7 @@ func (p *primalityTest) IsProbablyPrime(n *big.Int, minProbability float64) bool
 		if GCD(witness, n).Cmp(big.NewInt(1)) != 0 {
 			return false
 		}
+		
 		if !p.test(n, witness) {
 			return false
 		}

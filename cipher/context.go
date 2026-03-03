@@ -232,35 +232,3 @@ func (c *CipherContext) DecryptFile(ctx context.Context, inputPath, outputPath s
 		return err
 	}
 }
-
-func (c *CipherContext) EncryptStream(ctx context.Context, reader io.Reader, writer io.Writer) error {
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return errors.Annotate(err, "failed to read from stream: %w")
-	}
-
-	resultChan, errChan := c.EncryptBytes(ctx, data)
-	select {
-	case encrypted := <-resultChan:
-		_, err = writer.Write(encrypted)
-		return errors.Annotate(err, "failed to write to stream: %w")
-	case err := <-errChan:
-		return err
-	}
-}
-
-func (c *CipherContext) DecryptStream(ctx context.Context, reader io.Reader, writer io.Writer) error {
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return errors.Annotate(err, "failed to read from stream: %w")
-	}
-
-	resultChan, errChan := c.DecryptBytes(ctx, data)
-	select {
-	case decrypted := <-resultChan:
-		_, err = writer.Write(decrypted)
-		return errors.Annotate(err, "failed to write to stream: %w")
-	case err := <-errChan:
-		return err
-	}
-}

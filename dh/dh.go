@@ -85,7 +85,11 @@ func generateSafePrime(bits int, tester cryptoMath.PrimalityTester, minProb floa
 		p.Or(p, big.NewInt(1))
 
 		if tester.IsProbablyPrime(p, minProb) {
-			return p, nil
+			q := new(big.Int).Sub(p, big.NewInt(1))
+			q.Div(q, big.NewInt(2))
+			if tester.IsProbablyPrime(q, minProb) {
+				return p, nil
+			}
 		}
 	}
 }
